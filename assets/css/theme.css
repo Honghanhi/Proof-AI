@@ -1,0 +1,67 @@
+/* ═══════════════════════════════════════
+   THEME — AI-PROOF VERIFICATION SYSTEM
+   Dark Cyberpunk × Forensic Terminal
+═══════════════════════════════════════ */
+
+:root {
+  /* Core palette */
+  --bg-void:        #050508;
+  --bg-deep:        #080b12;
+  --bg-surface:     #0d1220;
+  --bg-panel:       #111827;
+  --bg-elevated:    #1a2236;
+
+  /* Accent system */
+  --accent-primary:  #00e5ff;
+  --accent-secondary:#7c3aed;
+  --accent-success:  #00ff9d;
+  --accent-warn:     #ffb300;
+  --accent-danger:   #ff3d5a;
+
+  /* Text */
+  --text-primary:   #e8edf5;
+  --text-secondary: #8896a8;
+  --text-muted:     #4a5568;
+  --text-accent:    #00e5ff;
+
+  /* Borders */
+  --border-subtle:  rgba(0,229,255,0.08);
+  --border-default: rgba(0,229,255,0.18);
+  --border-active:  rgba(0,229,255,0.55);
+
+  /* Glows */
+  --glow-cyan:   0 0 20px rgba(0,229,255,0.3), 0 0 60px rgba(0,229,255,0.1);
+  --glow-purple: 0 0 20px rgba(124,58,237,0.4), 0 0 60px rgba(124,58,237,0.15);
+  --glow-green:  0 0 20px rgba(0,255,157,0.3), 0 0 60px rgba(0,255,157,0.1);
+  --glow-red:    0 0 20px rgba(255,61,90,0.4);
+
+  /* Typography */
+  --font-display: 'Orbitron', 'Courier New', monospace;
+  --font-body:    'Inter', -apple-system, sans-serif;
+  --font-mono:    'Courier New', 'Fira Code', monospace;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+
+  /* Transitions */
+  --trans-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --trans-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --trans-slow:   600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Trust score colors ── */
+.trust-authentic { color: var(--accent-success); }
+.trust-likely    { color: #7aff6e; }
+.trust-uncertain { color: var(--accent-warn); }
+.trust-suspicious{ color: #ff7a00; }
+.trust-fake      { color: var(--accent-danger); }

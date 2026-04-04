@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kiểm tra An toàn URL — AI-PROOF</title>
+  <link rel="stylesheet" href="assets/css/theme.css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+  <style>
+    .danger-score-ring {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      border: 3px solid var(--accent-primary);
+      box-shadow: var(--glow-cyan);
+      margin: 0 auto 24px;
+      animation: glowPulse 2s ease-in-out infinite;
+    }
+    .risk-meter {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-elevated);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    .risk-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-success) 0%, var(--accent-warn) 50%, var(--accent-danger) 100%);
+      border-radius: 4px;
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .threat-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      border-left: 4px solid transparent;
+      margin-bottom: 12px;
+    }
+    .threat-card.critical { border-left-color: var(--accent-danger); }
+    .threat-card.warning { border-left-color: var(--accent-warn); }
+    .threat-card.info { border-left-color: var(--accent-primary); }
+    .threat-icon {
+      font-size: 1.2rem;
+      min-width: 24px;
+    }
+    .threat-content { flex: 1; }
+    .threat-title {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 2px;
+    }
+    .threat-desc {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .url-domain {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      background: var(--bg-deep);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      word-break: break-all;
+    }
+    .check-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+    }
+    .check-status {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .status-pass { background: var(--accent-success); color: white; }
+    .status-warn { background: var(--accent-warn); color: white; }
+    .status-fail { background: var(--accent-danger); color: white; }
+  </style>
+</head>
+<body>
+  <nav class="main-nav">
+    <div class="nav-logo">AI-PROOF</div>
+    <div class="nav-links">
+      <a href="index.html">Trang chủ</a>
+      <a href="analyze.html">Phân tích</a>
+      <a href="fakenews.html">Tin giả</a>
+      <a href="url.html" class="active">Kiểm tra URL</a>
+      <a href="timeline.html">Dòng thời gian</a>
+      <a href="nft.html">Studio NFT</a>
+      <a href="lab.html">Phòng Lab</a>
+      <a href="diagnostic.html" style="font-size:0.8rem;color:var(--text-secondary);">Chẩn đoán</a>
+    </div>
+  </nav>
+
+  <div id="app" class="page" style="padding-top:100px;">
+    <div class="container">
+      <!-- Header -->
+      <div class="anim-fadeInUp" style="margin-bottom:40px;">
+        <div class="badge badge-cyan" style="margin-bottom:16px;">🔗 Phát hiện Mối Hạ</div>
+        <h1>Kiểm tra An toàn <span style="color:var(--accent-primary);">URL</span></h1>
+        <p style="color:var(--text-secondary);margin-top:8px;">Đánh giá mức rủi ro và chất lượng nội dung của bất kỳ URL nào.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:32px;align-items:start;">
+        <!-- Main input -->
+        <div class="anim-fadeInUp delay-1">
+          <!-- URL input -->
+          <div class="input-group">
+            <label class="input-label">URL Trang Web</label>
+            <input 
+              type="url" 
+              id="url-input" 
+              class="input-field" 
+              placeholder="https://example.com" 
+            />
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">Bao gồm https:// hoặc http://</div>
+          </div>
+
+          <!-- Check options -->
+          <div class="panel mt-lg" style="padding:20px;">
+            <div class="panel-title">Kiểm tra An toàn</div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;margin-bottom:8px;">
+              <input type="checkbox" id="opt-malware" checked style="accent-color:var(--accent-primary);" />
+              Phát hiện Phần mềm độc hại
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;margin-bottom:8px;">
+              <input type="checkbox" id="opt-phishing" checked style="accent-color:var(--accent-primary);" />
+              Kiểm tra Giả mạo
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;margin-bottom:8px;">
+              <input type="checkbox" id="opt-ssl" checked style="accent-color:var(--accent-primary);" />
+              Xác thực SSL/TLS
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;margin-bottom:8px;">
+              <input type="checkbox" id="opt-reputation" checked style="accent-color:var(--accent-primary);" />
+              Danh tiếng Miền
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+              <input type="checkbox" id="opt-content" checked style="accent-color:var(--accent-primary);" />
+              Phân tích Nội dung
+            </label>
+          </div>
+
+          <button id="check-btn" class="btn btn-primary btn-lg w-full mt-lg" onclick="startURLCheck()">
+            🛡️ Quét URL để tìm Mối đe dọa
+          </button>
+        </div>
+
+        <!-- Sidebar: Status -->
+        <div class="anim-fadeInUp delay-2">
+          <div class="panel">
+            <div class="panel-title">Mức Nguy hiểm</div>
+            <div class="danger-score-ring">
+              <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:900;" id="danger-percent">—</div>
+              <div style="font-size:0.6rem;letter-spacing:0.1em;color:var(--text-secondary);">RỦI RO</div>
+            </div>
+            <div class="risk-meter">
+              <div class="risk-bar" id="risk-bar" style="width:0%;"></div>
+            </div>
+            <div style="text-align:center;font-weight:600;font-size:0.85rem;" id="danger-label">—</div>
+          </div>
+
+          <div class="panel mt-lg">
+            <div class="panel-title">Thông tin Miền</div>
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:8px;">Miền Chính</div>
+            <div id="domain-display" class="url-domain">—</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:0.8rem;">
+              <div>
+                <div style="color:var(--text-secondary);">Tuổi</div>
+                <div id="domain-age">—</div>
+              </div>
+              <div>
+                <div style="color:var(--text-secondary);">Xếp hạng</div>
+                <div id="domain-rank">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results section -->
+      <div id="results-section" class="hidden mt-xl" style="animation: slideInUp 0.6s ease-out;">
+        <!-- Threats detected -->
+        <div class="panel mb-lg anim-fadeInUp">
+          <div class="panel-title">Các Vấn đề Được Phát hiện</div>
+          <div id="threats-list" style="display:flex;flex-direction:column;gap:0;">
+            <!-- Populated by JS -->
+          </div>
+          <div id="no-threats" style="padding:24px;text-align:center;color:var(--text-secondary);">
+            ✓ No critical threats detected
+          </div>
+        </div>
+
+        <!-- Security checklist -->
+        <div class="panel mb-lg anim-fadeInUp delay-1">
+          <div class="panel-title">Danh sách Kiểm tra Bảo mật</div>
+          <div class="check-list" id="security-checks">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Content analysis -->
+        <div class="panel mb-lg anim-fadeInUp delay-2">
+          <div class="panel-title">Phân tích Nội dung</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div>
+              <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:4px;">Content Type</div>
+              <div id="content-type" style="font-weight:600;">—</div>
+            </div>
+            <div>
+              <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:4px;">Language</div>
+              <div id="content-lang" style="font-weight:600;">—</div>
+            </div>
+            <div>
+              <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:4px;">Last Updated</div>
+              <div id="content-updated">—</div>
+            </div>
+            <div>
+              <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:4px;">HTTPS</div>
+              <div id="is-https" style="font-weight:600;">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recommendation -->
+        <div class="panel anim-fadeInUp delay-3">
+          <div class="panel-title">Khá năng</div>
+          <div style="display:flex;gap:16px;align-items:flex-start;padding:16px;background:var(--bg-elevated);border-radius:var(--radius-md);">
+            <div style="font-size:1.5rem;" id="rec-icon">🛡️</div>
+            <div style="flex:1;">
+              <div style="font-weight:600;color:var(--accent-primary);margin-bottom:4px;" id="rec-title">Safe to Visit</div>
+              <div id="rec-description" style="font-size:0.85rem;color:var(--text-secondary);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Processing overlay -->
+      <div id="processing-overlay" class="panel hidden mt-lg">
+        <div class="panel-title">Quét URL...</div>
+        <div id="processing-steps" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div class="score-bar mt-lg">
+          <div class="score-bar-fill" id="processing-bar" style="width:0%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/hash.js"></script>
+  <script src="assets/js/merkle.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/blockchain.js"></script>
+  <script src="assets/js/ai-server.js"></script>
+  <script src="assets/js/ai.js"></script>
+  <script src="assets/js/ai-gemini.js"></script>
+  <script src="assets/js/url-page.js"></script>
+</body>
+</html>

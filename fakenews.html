@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phát hiện Fake News — AI-PROOF</title>
+  <link rel="stylesheet" href="assets/css/theme.css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+  <style>
+    .danger-meter {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-default);
+    }
+    .danger-level {
+      width: 100%;
+      height: 12px;
+      background: var(--bg-elevated);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .danger-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-success), var(--accent-warn), var(--accent-danger));
+      transition: width 1s ease-out;
+    }
+    .danger-label {
+      font-weight: 600;
+      min-width: 100px;
+      text-align: right;
+    }
+    .risk-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .risk-low { background: var(--accent-success); }
+    .risk-medium { background: var(--accent-warn); }
+    .risk-high { background: var(--accent-danger); }
+
+    .sources-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .source-card {
+      padding: 16px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      border-left: 4px solid transparent;
+    }
+    .source-card.authentic { border-left-color: var(--accent-success); }
+    .source-card.questionable { border-left-color: var(--accent-warn); }
+    .source-card.suspicious { border-left-color: var(--accent-danger); }
+
+    .claim-analysis {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg-deep);
+      border-radius: var(--radius-sm);
+    }
+    .claim-item {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .claim-icon { margin-top: 2px; }
+    .claim-text { font-size: 0.85rem; color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <nav class="main-nav">
+    <div class="nav-logo">AI-PROOF</div>
+    <div class="nav-links">
+      <a href="index.html">Trang chủ</a>
+      <a href="analyze.html">Phân tích</a>
+      <a href="fakenews.html" class="active">Fake News</a>
+      <a href="url-check.html">Kiểm tra URL</a>
+      <a href="timeline.html">Dòng thời gian</a>
+      <a href="lab.html">Phòng Lab</a>
+      <a href="diagnostic.html" style="font-size:0.8rem;color:var(--text-secondary);">Chẩn đoán</a>
+    </div>
+  </nav>
+
+  <div id="app" class="page" style="padding-top:100px;">
+    <div class="container">
+      <!-- Header -->
+      <div class="anim-fadeInUp" style="margin-bottom:40px;">
+        <div class="badge badge-cyan" style="margin-bottom:16px;">📰 Phát hiện Thông tin sai lệch</div>
+        <h1>Trình Phát hiện <span style="color:var(--accent-primary);">Fake News</span></h1>
+        <p style="color:var(--text-secondary);margin-top:8px;">Phân tích các bài viết và tuyên bố tin tức để tìm thông tin sai lệch, thiên vị và độ tin cậy của nguồn.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:32px;align-items:start;">
+        <!-- Main input -->
+        <div class="anim-fadeInUp delay-1">
+          <!-- Input area -->
+          <div class="input-group">
+            <label class="input-label">Article Title & Content</label>
+            <input 
+              type="text" 
+              id="article-title" 
+              class="input-field" 
+              placeholder="Enter article headline..." 
+              style="margin-bottom:12px;"
+            />
+            <textarea
+              id="article-content"
+              class="input-field"
+              rows="8"
+              placeholder="Paste article text or main claims here..."
+            ></textarea>
+            <div class="flex justify-between" style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">
+              <span id="content-count">0 characters</span>
+              <span>Min 50 chars recommended</span>
+            </div>
+          </div>
+
+          <!-- Source info -->
+          <div class="panel mt-lg" style="padding:20px;">
+            <div class="panel-title">Source Information</div>
+            <div class="input-group">
+              <label class="input-label">Source URL (optional)</label>
+              <input 
+                type="url" 
+                id="source-url" 
+                class="input-field" 
+                placeholder="https://example.com" 
+              />
+            </div>
+            <div class="input-group mt-lg">
+              <label class="input-label">Publication Date</label>
+              <input 
+                type="date" 
+                id="pub-date" 
+                class="input-field"
+              />
+            </div>
+          </div>
+
+          <button id="check-btn" class="btn btn-primary btn-lg w-full mt-lg" onclick="startFakeNewsCheck()">
+            🔍 Check for Fake News
+          </button>
+        </div>
+
+        <!-- Sidebar: Quick stats -->
+        <div class="anim-fadeInUp delay-2">
+          <div class="panel">
+            <div class="panel-title">Quick Insights</div>
+            <div style="display:flex;flex-direction:column;gap:12px;font-size:0.85rem;">
+              <div>
+                <div style="color:var(--text-secondary);margin-bottom:4px;">Claim Count</div>
+                <div style="font-family:var(--font-display);font-size:1.4rem;color:var(--accent-primary);" id="claim-count">—</div>
+              </div>
+              <div>
+                <div style="color:var(--text-secondary);margin-bottom:4px;">Source Credibility</div>
+                <div style="font-family:var(--font-display);font-size:1.2rem;" id="source-credibility">—</div>
+              </div>
+              <div>
+                <div style="color:var(--text-secondary);margin-bottom:4px;">Language Bias</div>
+                <div id="language-bias" style="font-size:0.8rem;color:var(--text-muted);">Awaiting analysis...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel mt-lg">
+            <div class="panel-title">Analysis Options</div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;margin-bottom:8px;">
+              <input type="checkbox" id="opt-sources" checked style="accent-color:var(--accent-primary);" />
+              Check source credibility
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;margin-bottom:8px;">
+              <input type="checkbox" id="opt-facts" checked style="accent-color:var(--accent-primary);" />
+              Verify facts & claims
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+              <input type="checkbox" id="opt-bias" checked style="accent-color:var(--accent-primary);" />
+              Detect language bias
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results section -->
+      <div id="results-section" class="hidden mt-xl" style="animation: slideInUp 0.6s ease-out;">
+        <!-- Danger level meter -->
+        <div class="panel mb-lg anim-fadeInUp">
+          <div class="panel-title">Misinformation Risk Level</div>
+          <div class="danger-meter">
+            <div style="flex:1;">
+              <div class="danger-level">
+                <div class="danger-fill" id="danger-fill" style="width:0%;"></div>
+              </div>
+            </div>
+            <div class="danger-label" id="danger-label">Safe</div>
+          </div>
+          <p id="danger-summary" style="margin-top:12px;color:var(--text-secondary);font-size:0.85rem;"></p>
+        </div>
+
+        <!-- Claims breakdown -->
+        <div class="panel mb-lg anim-fadeInUp delay-1">
+          <div class="panel-title">Phân tích Yêu cầu</div>
+          <div id="claims-breakdown" style="display:flex;flex-direction:column;gap:12px;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Sources -->
+        <div class="panel mb-lg anim-fadeInUp delay-2">
+          <div class="panel-title">Source Assessment</div>
+          <div id="sources-assessment" class="sources-grid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Verdict -->
+        <div class="panel anim-fadeInUp delay-3">
+          <div class="panel-title">Final Verdict</div>
+          <div style="display:flex;gap:16px;align-items:center;padding:16px;background:var(--bg-elevated);border-radius:var(--radius-md);">
+            <div style="font-size:2rem;" id="verdict-emoji">📰</div>
+            <div style="flex:1;">
+              <div style="font-weight:600;color:var(--accent-primary);" id="verdict-title">—</div>
+              <div id="verdict-recommendation" style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Processing overlay -->
+      <div id="processing-overlay" class="panel hidden mt-lg">
+        <div class="panel-title">Analyzing Article...</div>
+        <div id="processing-steps" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div class="score-bar mt-lg">
+          <div class="score-bar-fill" id="processing-bar" style="width:0%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/hash.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/ai-server.js"></script>
+  <script src="assets/js/ai.js"></script>
+  <script src="assets/js/ai-gemini.js"></script>
+  <script src="assets/js/fakenews-page.js"></script>
+</body>
+</html>

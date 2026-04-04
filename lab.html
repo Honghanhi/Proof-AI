@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phòng Lab — AI-PROOF</title>
+  <link rel="stylesheet" href="assets/css/theme.css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+</head>
+<body>
+  <nav class="main-nav">
+    <div class="nav-logo">AI-PROOF</div>
+    <div class="nav-links">
+      <a href="index.html">Trang chủ</a>
+      <a href="analyze.html">Phân tích</a>
+      <a href="fakenews.html">Tin giả</a>
+      <a href="url-check.html">Kiểm tra URL</a>
+      <a href="timeline.html">Lịch sử</a>
+      <a href="nft.html">Xưởng NFT</a>
+      <a href="lab.html" class="active">Phòng Lab</a>
+      <a href="diagnostic.html" style="font-size:0.8rem;color:var(--text-secondary);">Chẩn đoán</a>
+    </div>
+  </nav>
+
+  <div id="app" class="page" style="padding-top:100px;">
+    <div class="container">
+      <div class="anim-fadeInDown" style="margin-bottom:40px;">
+        <div class="badge badge-cyan" style="margin-bottom:12px;">⛭ Những Công cụ Thối trang </div>
+        <h1>Phòng <span style="color:var(--accent-primary);">Nghiên cứu</span></h1>
+        <p style="color:var(--text-secondary);margin-top:8px;">Các công cụ chia đẻ có cấp thấp cho nhà phát triển và nhà nghiên cứu.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;">
+
+        <!-- Hash Explorer -->
+        <div class="panel anim-fadeInUp delay-1">
+          <div class="panel-title">Tìm Kiếm Hash</div>
+          <div class="input-group">
+            <textarea id="hash-input" class="input-field" rows="4" placeholder="Nhập văn bản để hash..."></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline" style="font-size:0.65rem;" onclick="computeHash('sha256')">SHA-256</button>
+              <button class="btn btn-outline" style="font-size:0.65rem;" onclick="computeHash('sha512')">SHA-512</button>
+              <button class="btn btn-outline" style="font-size:0.65rem;" onclick="computeHash('merkle')">Merkle Root</button>
+            </div>
+            <div id="hash-output" class="blockchain-hash hidden" style="
+              font-family:var(--font-mono);font-size:0.7rem;
+              color:var(--accent-primary);word-break:break-all;
+              padding:12px;background:var(--bg-deep);border-radius:var(--radius-sm);
+              border:1px solid var(--border-subtle);
+            "></div>
+          </div>
+        </div>
+
+        <!-- Merkle Tree Visualizer -->
+        <div class="panel anim-fadeInUp delay-2">
+          <div class="panel-title">Quản lý Merkle Tree</div>
+          <div class="input-group">
+            <textarea id="merkle-leaves" class="input-field" rows="4" placeholder="Một lá trên một dòng..."></textarea>
+            <button class="btn btn-outline w-full" onclick="buildMerkle()">Xây dựng Cây</button>
+            <canvas id="merkle-canvas" width="300" height="200" style="width:100%;border-radius:8px;background:var(--bg-deep);"></canvas>
+          </div>
+        </div>
+
+        <!-- Version Diff -->
+        <div class="panel anim-fadeInUp delay-3">
+          <div class="panel-title">So sánh Phiên bản</div>
+          <div class="input-group">
+            <label class="input-label">Phiên bản A</label>
+            <textarea id="ver-a" class="input-field" rows="3" placeholder="Văn bản gốc..."></textarea>
+            <label class="input-label">Phiên bản B</label>
+            <textarea id="ver-b" class="input-field" rows="3" placeholder="Văn bản đã sửa..."></textarea>
+            <button class="btn btn-outline w-full" onclick="runDiff()">So sánh</button>
+            <div id="diff-output" class="hidden" style="font-size:0.85rem;line-height:1.8;padding:12px;background:var(--bg-deep);border-radius:var(--radius-sm);"></div>
+          </div>
+        </div>
+
+        <!-- Blockchain Inspector -->
+        <div class="panel anim-fadeInUp delay-4">
+          <div class="panel-title">Kiểm tra Khối</div>
+          <div id="chain-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div style="text-align:center;padding:16px;background:var(--bg-elevated);border-radius:var(--radius-md);">
+              <div style="font-family:var(--font-display);font-size:1.5rem;color:var(--accent-primary);" id="chain-length">0</div>
+              <div style="font-size:0.65rem;color:var(--text-secondary);margin-top:4px;">BLOCKS</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg-elevated);border-radius:var(--radius-md);">
+              <div style="font-family:var(--font-display);font-size:1.5rem;color:var(--accent-success);" id="chain-valid">✓</div>
+              <div style="font-size:0.65rem;color:var(--text-secondary);margin-top:4px;">INTEGRITY</div>
+            </div>
+          </div>
+          <button class="btn btn-outline w-full" onclick="validateChain()">Kiểm tra Chuỗi</button>
+          <div id="chain-output" class="hidden mt-lg" style="font-family:var(--font-mono);font-size:0.7rem;max-height:200px;overflow-y:auto;padding:12px;background:var(--bg-deep);border-radius:var(--radius-sm);"></div>
+        </div>
+
+        <!-- Model Comparison -->
+        <div class="panel anim-fadeInUp delay-5" style="grid-column:span 2;">
+          <div class="panel-title">Mồ Lược Mô hình</div>
+          <div class="input-group">
+            <textarea id="bench-text" class="input-field" rows="3" placeholder="Test text for all models..."></textarea>
+            <button class="btn btn-primary" onclick="runBenchmark()">⬡ Run All Models</button>
+          </div>
+          <div id="bench-results" class="hidden mt-lg" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/ai-gemini.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/hash.js"></script>
+  <script src="assets/js/merkle.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/blockchain.js"></script>
+  <script src="assets/js/version-compare.js"></script>
+  <script src="assets/js/ai-server.js"></script>
+  <script src="assets/js/ai.js"></script>
+  <script>
+    // Lab page glue
+    async function computeHash(algo) {
+      const text = document.getElementById('hash-input').value;
+      if (!text.trim()) return;
+      let result = '';
+      if (algo === 'merkle') {
+        const words = text.split(/\s+/).filter(Boolean);
+        result = await buildMerkleRoot(words);
+      } else {
+        result = await hashText(text, algo);
+      }
+      const el = document.getElementById('hash-output');
+      el.textContent = result;
+      el.classList.remove('hidden');
+    }
+
+    async function runDiff() {
+      const a = document.getElementById('ver-a').value;
+      const b = document.getElementById('ver-b').value;
+      const diff = computeDiff(a, b);
+      const el = document.getElementById('diff-output');
+      el.innerHTML = diff;
+      el.classList.remove('hidden');
+    }
+
+    async function runBenchmark() {
+      const text = document.getElementById('bench-text').value;
+      if (!text.trim()) return;
+      const el = document.getElementById('bench-results');
+      el.classList.remove('hidden');
+      el.innerHTML = '<div style="color:var(--text-muted);">Running...</div>';
+      const results = await runAllModels(text);
+      el.innerHTML = results.map(r => `
+        <div class="panel" style="padding:16px;text-align:center;">
+          <div style="font-size:0.65rem;color:var(--text-secondary);margin-bottom:8px;">${r.model}</div>
+          <div style="font-family:var(--font-display);font-size:1.4rem;font-weight:900;color:var(--accent-primary);">${r.score}%</div>
+          <div class="score-bar mt-lg"><div class="score-bar-fill" style="width:${r.score}%"></div></div>
+        </div>
+      `).join('');
+    }
+
+    function validateChain() {
+      const { valid, length, errors } = getChainValidation();
+      document.getElementById('chain-length').textContent = length;
+      document.getElementById('chain-valid').textContent = valid ? '✓' : '✗';
+      document.getElementById('chain-valid').style.color = valid ? 'var(--accent-success)' : 'var(--accent-danger)';
+      const out = document.getElementById('chain-output');
+      out.classList.remove('hidden');
+      out.innerHTML = errors.length
+        ? errors.map(e => `<div style="color:var(--accent-danger);">✗ ${e}</div>`).join('')
+        : '<div style="color:var(--accent-success);">✓ Tất cả các khối hợp lệ. Tính toàn bộ của chuỗi được xác nhận.</div>';
+    }
+  </script>
+</body>
+</html>

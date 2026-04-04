@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xưởng NFT — AI-PROOF</title>
+  <link rel="stylesheet" href="assets/css/theme.css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+  <style>
+    /* ── NFT-only styles, dùng đúng CSS variables của dự án ── */
+
+    .nft-two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 768px) { .nft-two-col { grid-template-columns: 1fr; } }
+
+    /* Tab bar — dùng btn như các trang khác */
+    .nft-tab-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    /* Drop zone */
+    .nft-dropzone {
+      border: 2px dashed rgba(0,229,255,.22);
+      border-radius: var(--radius-lg);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .nft-dropzone:hover,
+    .nft-dropzone.drag-over {
+      border-color: var(--accent-primary);
+      background: rgba(0,229,255,.04);
+    }
+    .nft-dropzone .dz-icon { font-size: 2.2rem; display: block; margin-bottom: 10px; }
+    .nft-dropzone .dz-text { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px; }
+    .nft-dropzone .dz-hint { font-size: 0.72rem; color: var(--text-muted); }
+
+    /* Asset preview */
+    .nft-preview {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: linear-gradient(135deg, var(--bg-deep) 0%, rgba(124,58,237,.15) 100%);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.5rem;
+      position: relative;
+    }
+    .nft-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .nft-preview-wm,
+    .nft-watermark {
+      position: absolute; bottom: 8px; right: 10px;
+      font-size: 0.58rem; color: rgba(255,255,255,.25);
+      font-family: var(--font-display); letter-spacing: .06em;
+    }
+
+    /* Rarity grid */
+    .nft-rarity-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .nft-rarity-btn {
+      padding: 9px 4px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: transparent;
+      cursor: pointer;
+      text-align: center;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      font-family: inherit;
+      transition: all .18s;
+    }
+    .nft-rarity-btn:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+    .nft-rarity-btn .ri  { display: block; font-size: 1.2rem; margin-bottom: 3px; }
+    .nft-rarity-btn[data-rarity="Common"].active    { border-color:#9ca3af; background:rgba(156,163,175,.12); color:#9ca3af; }
+    .nft-rarity-btn[data-rarity="Uncommon"].active  { border-color:#22c55e; background:rgba(34,197,94,.1);    color:#22c55e; }
+    .nft-rarity-btn[data-rarity="Rare"].active      { border-color:#3b82f6; background:rgba(59,130,246,.1);   color:#3b82f6; }
+    .nft-rarity-btn[data-rarity="Epic"].active      { border-color:#a855f7; background:rgba(168,85,247,.1);   color:#a855f7; }
+    .nft-rarity-btn[data-rarity="Legendary"].active { border-color:#fbbf24; background:rgba(251,191,36,.1);   color:#fbbf24; }
+    .nft-rarity-btn[data-rarity="Unique"].active    { border-color:#ef4444; background:rgba(239,68,68,.1);    color:#ef4444; }
+
+    /* Tag chips */
+    .nft-tag-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      min-height: 42px;
+      cursor: text;
+      transition: border-color .2s;
+    }
+    .nft-tag-wrap:focus-within { border-color: var(--accent-primary); }
+    .nft-tag-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(0,229,255,.12);
+      color: var(--accent-primary);
+      border: 1px solid rgba(0,229,255,.25);
+      padding: 2px 8px; border-radius: 20px; font-size: 0.72rem;
+    }
+    .nft-tag-chip button {
+      background: none; border: none; color: var(--accent-primary);
+      cursor: pointer; font-size: 0.82rem; padding: 0; line-height: 1; opacity: .7;
+    }
+    .nft-tag-chip button:hover { opacity: 1; }
+    .nft-tag-field {
+      background: none; border: none; outline: none;
+      color: var(--text-primary); font-size: 0.82rem;
+      flex: 1; min-width: 80px; font-family: inherit;
+    }
+
+    /* Collection cards grid */
+    .nft-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 16px;
+    }
+    .nft-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform .18s, border-color .2s, box-shadow .2s;
+      position: relative;
+    }
+    .nft-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent-primary);
+      box-shadow: var(--glow-cyan);
+    }
+    .nft-card-thumb {
+      width: 100%; aspect-ratio: 1 / 1;
+      background: linear-gradient(135deg, var(--bg-deep), rgba(124,58,237,.15));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; overflow: hidden;
+    }
+    .nft-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .nft-card-body { padding: 10px 12px; }
+    .nft-card-name {
+      font-weight: 700; font-size: 0.82rem; color: var(--text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px;
+    }
+    .nft-card-sub { font-family: var(--font-display); font-size: 0.66rem; color: var(--text-muted); }
+    .nft-card-badge {
+      position: absolute; top: 8px; right: 8px;
+      font-size: 0.63rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
+    }
+
+    /* Hash display */
+    .nft-hash {
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-default);
+      padding: 9px 12px;
+      border-radius: var(--radius-md);
+      color: var(--accent-primary);
+      word-break: break-all;
+      cursor: pointer;
+      transition: border-color .18s;
+    }
+    .nft-hash:hover { border-color: var(--accent-primary); }
+
+    /* Usage log */
+    .nft-log {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .nft-log-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 0.75rem;
+    }
+    .nft-log-row:last-child { border-bottom: none; }
+
+    /* Meta grid inside modal */
+    .nft-meta-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0;
+    }
+    .nft-meta-cell {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      padding: 9px 11px;
+    }
+    .nft-meta-cell label {
+      display: block; font-size: 0.65rem;
+      color: var(--text-muted); margin-bottom: 2px;
+    }
+    .nft-meta-cell span { font-size: 0.8rem; color: var(--text-primary); word-break: break-all; }
+
+    /* Modal backdrop */
+    .nft-modal-backdrop {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.85); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; animation: fadeInUp .2s ease;
+    }
+    .nft-modal-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl, 16px);
+      max-width: 640px; width: 100%;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .nft-modal-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-default);
+    }
+
+    @keyframes mintPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .minting { animation: mintPulse .7s ease infinite; }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav — copy exact từ index.html / fakenews.html ── -->
+<nav class="main-nav">
+  <div class="nav-logo">AI-PROOF</div>
+  <div class="nav-links">
+    <a href="index.html">Trang chủ</a>
+    <a href="analyze.html">Phân tích</a>
+    <a href="fakenews.html">Tin giả</a>
+    <a href="url-check.html">Kiểm tra URL</a>
+    <a href="timeline.html">Dòng thời gian</a>
+    <a href="lab.html">Phòng Lab</a>
+    <a href="nft.html" class="active">Xưởng NFT</a>
+  </div>
+</nav>
+
+<div id="app" class="page" style="padding-top:100px;">
+  <div class="container">
+
+    <!-- Header -->
+    <div class="anim-fadeInUp" style="margin-bottom:40px;">
+      <div class="badge badge-cyan" style="margin-bottom:16px;">🎨 Máy Mã hóa Tài sản Kỹ thuật số</div>
+      <h1>NFT <span style="color:var(--accent-primary);">Studio</span></h1>
+      <p style="color:var(--text-secondary);margin-top:8px;">
+        Mã hóa &amp; bảo vệ tài sản kỹ thuật số của bạn bằng bằng chứng blockchain mã hóa.
+      </p>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="nft-tab-bar anim-fadeInUp delay-1">
+      <button id="nft-btn-mint"       class="btn btn-primary"  onclick="nftSwitchTab('mint')">✨ Tạo NFT</button>
+      <button id="nft-btn-collection" class="btn btn-outline"  onclick="nftSwitchTab('collection')">🗂️ Bộ sưu tập của tôi</button>
+      <button id="nft-btn-verify"     class="btn btn-ghost"    onclick="nftSwitchTab('verify')">🔍 Xác minh</button>
+    </div>
+
+    <!-- ══════════════ MINT TAB ══════════════ -->
+    <div id="nft-tab-mint" class="anim-fadeInUp delay-2">
+      <div class="nft-two-col">
+
+        <!-- Left: upload + preview -->
+        <div style="display:flex;flex-direction:column;gap:24px;">
+
+          <div class="panel">
+            <div class="panel-title">📁 Tải lên Tài sản</div>
+            <div class="nft-dropzone" id="nft-drop-zone"
+              onclick="document.getElementById('nft-file-input').click()"
+              ondragover="nftHandleDragOver(event)"
+              ondragleave="nftHandleDragLeave()"
+              ondrop="nftHandleDrop(event)">
+              <span class="dz-icon" id="nft-dz-icon">📂</span>
+              <p  class="dz-text" id="nft-dz-text">Thả tệp của bạn tại đây hoặc nhấp để duyệt</p>
+              <span class="dz-hint">Hình ảnh · Âm thanh · Video · PDF · 3D — tối đa 50 MB</span>
+              <input type="file" id="nft-file-input" hidden
+                accept="image/*,audio/*,video/*,.pdf,.glb,.gltf"
+                onchange="nftHandleFileSelect(event)">
+            </div>
+            <div id="nft-file-info"
+              style="display:none;margin-top:10px;font-size:0.72rem;
+                     color:var(--text-muted);font-family:var(--font-display);"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">👁️ Xem trước</div>
+            <div class="nft-preview" id="nft-preview-canvas">
+              <span style="font-size:4rem;">🖼️</span>
+              <div class="nft-preview-wm nft-watermark" id="nft-wm" style="display:none;">AI-PROOF NFT</div>
+            </div>
+          </div>
+
+        </div><!-- /left -->
+
+        <!-- Right: metadata -->
+        <div class="panel">
+          <div class="panel-title">📋 NFT Metadata</div>
+          <div style="display:flex;flex-direction:column;gap:16px;">
+
+            <div class="input-group">
+              <label class="input-label" for="nft-name">Name *</label>
+              <input class="input-field" type="text" id="nft-name"
+                placeholder="My Digital Masterpiece" maxlength="80">
+            </div>
+
+            <div class="input-group">
+              <label class="input-label" for="nft-desc">Description</label>
+              <textarea class="input-field" id="nft-desc" rows="3"
+                style="resize:vertical;"
+                placeholder="Describe your digital asset…"></textarea>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="input-group">
+                <label class="input-label" for="nft-creator">Creator</label>
+                <input class="input-field" type="text" id="nft-creator" placeholder="Your name">
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="nft-collection">Collection</label>
+                <input class="input-field" type="text" id="nft-collection" placeholder="Genesis Collection">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label" for="nft-royalty">Royalty %</label>
+              <input class="input-field" type="number" id="nft-royalty"
+                value="10" min="0" max="50" style="max-width:110px;">
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Tags</label>
+              <div class="nft-tag-wrap" id="nft-tag-container"
+                onclick="document.getElementById('nft-tag-field').focus()">
+                <input type="text" id="nft-tag-field" class="nft-tag-field"
+                  placeholder="Type tag + Enter"
+                  onkeydown="nftHandleTagInput(event)">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Rarity</label>
+              <div class="nft-rarity-grid">
+                <button class="nft-rarity-btn" data-rarity="Common"    onclick="nftSelectRarity(this)"><span class="ri">⬜</span>Common</button>
+                <button class="nft-rarity-btn" data-rarity="Uncommon"  onclick="nftSelectRarity(this)"><span class="ri">🟩</span>Uncommon</button>
+                <button class="nft-rarity-btn active" data-rarity="Rare" onclick="nftSelectRarity(this)"><span class="ri">🔷</span>Rare</button>
+                <button class="nft-rarity-btn" data-rarity="Epic"      onclick="nftSelectRarity(this)"><span class="ri">💜</span>Epic</button>
+                <button class="nft-rarity-btn" data-rarity="Legendary" onclick="nftSelectRarity(this)"><span class="ri">⭐</span>Legendary</button>
+                <button class="nft-rarity-btn" data-rarity="Unique"    onclick="nftSelectRarity(this)"><span class="ri">🔥</span>Unique</button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary w-full" id="nft-mint-btn"
+              onclick="nftMint()" disabled
+              style="padding:13px;font-size:0.95rem;font-weight:800;letter-spacing:.05em;
+                     background:linear-gradient(135deg,#7c3aed,var(--accent-primary));">
+              ✨ Mint NFT
+            </button>
+            <div id="nft-mint-status"
+              style="min-height:18px;font-size:0.78rem;text-align:center;color:var(--text-muted);"></div>
+
+          </div>
+        </div><!-- /right panel -->
+
+      </div><!-- /nft-two-col -->
+    </div><!-- /tab-mint -->
+
+    <!-- ══════════════ COLLECTION TAB ══════════════ -->
+    <div id="nft-tab-collection" style="display:none;">
+
+      <div class="flex justify-between items-center anim-fadeInUp"
+           style="margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h2 style="font-size:1.1rem;">Bộ sưu tập của tôi</h2>
+          <p id="nft-collection-count" style="font-size:0.78rem;color:var(--text-secondary);margin-top:4px;">0 mục</p>
+        </div>
+        <div class="flex gap-sm" style="flex-wrap:wrap;">
+          <select id="nft-rarity-filter" onchange="nftRenderCollection()"
+            class="input-field" style="padding:7px 12px;width:auto;font-size:0.8rem;">
+            <option value="">Tất cả Độ hiếm</option>
+            <option value="Common">Thường</option>
+            <option value="Uncommon">Hiếm</option>
+            <option value="Rare">Rất hiếm</option>
+            <option value="Epic">Tuyệt vời</option>
+            <option value="Legendary">Huyền thoại</option>
+            <option value="Unique">Độc đáo</option>
+          </select>
+          <button onclick="nftExportAll()" class="btn btn-outline" style="font-size:0.8rem;">
+            ⬇ Xuất tất cả
+          </button>
+        </div>
+      </div>
+
+      <div class="nft-grid" id="nft-cards"></div>
+
+    </div><!-- /tab-collection -->
+
+    <!-- ══════════════ VERIFY TAB ══════════════ -->
+    <div id="nft-tab-verify" style="display:none;">
+      <div style="max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Verify by ID / Hash -->
+        <div class="panel anim-fadeInUp">
+          <div class="panel-title">🔍 Xác minh theo ID NFT hoặc Hash</div>
+          <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px;line-height:1.65;">
+            Nhập ID NFT hoặc hash nội dung SHA-256 để xác nhận nó tồn tại trong sổ cái blockchain.
+          </p>
+          <div class="input-group">
+            <label class="input-label" for="nft-verify-input">ID NFT hoặc Hash nội dung</label>
+            <input class="input-field" type="text" id="nft-verify-input"
+              style="font-family:var(--font-display);font-size:0.82rem;"
+              placeholder="nft_… hoặc sha256 hex…"
+              onkeypress="if(event.key==='Enter') nftVerify()">
+          </div>
+          <button onclick="nftVerify()" class="btn btn-primary w-full mt-lg"
+            style="padding:12px;">🔍 Xác minh</button>
+          <div id="nft-verify-result" style="margin-top:16px;"></div>
+        </div>
+
+        <!-- Verify by Protected Image -->
+        <div class="panel anim-fadeInUp delay-1">
+          <div class="panel-title">🛡️ Xác minh Hình ảnh được Bảo vệ</div>
+          <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:16px;line-height:1.65;">
+            Tải lên hình ảnh được bảo vệ được tải xuống từ AI-PROOF. Chúng tôi sẽ đọc chữ ký mã hóa ẩn được nhúng trong các pixel.
+          </p>
+          <div id="nft-verify-drop"
+            style="border:2px dashed rgba(0,229,255,.22);border-radius:var(--radius-lg);padding:28px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;"
+            onclick="document.getElementById('nft-verify-file').click()"
+            ondragover="event.preventDefault();this.style.borderColor='var(--accent-primary)'"
+            ondragleave="this.style.borderColor='rgba(0,229,255,.22)'"
+            ondrop="event.preventDefault();this.style.borderColor='rgba(0,229,255,.22)';_nftVerifyDrop(event)">
+            <div style="font-size:2rem;margin-bottom:8px;">🖼️</div>
+            <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:4px;">Thả hình ảnh được bảo vệ tại đây hoặc nhấp để duyệt</p>
+            <p style="font-size:0.72rem;color:var(--text-muted);">PNG được khuyên dùng — phải được tải xuống từ AI-PROOF</p>
+            <input type="file" id="nft-verify-file" hidden accept="image/*"
+              onchange="if(this.files[0]) nftVerifyProtectedImage(this.files[0])">
+          </div>
+          <div id="nft-verify-image-result" style="margin-top:16px;"></div>
+        </div>
+
+      </div>
+    </div><!-- /tab-verify -->
+
+  </div><!-- /container -->
+</div><!-- /app -->
+
+<script src="assets/js/ai-gemini.js"></script>
+<script src="assets/js/ai-backend-config.js"></script>
+  <script src="assets/js/config.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/hash.js"></script>
+<script src="assets/js/merkle.js"></script>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/blockchain.js"></script>
+<script src="assets/js/image-protect.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/nft-page.js"></script>
+</body>
+</html>

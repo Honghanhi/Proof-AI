@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>API Endpoint Explorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #050508; color: #e0e0e0; padding: 24px; }
+  h1 { color: #00e5ff; font-size: 1.2rem; margin-bottom: 20px; }
+  .service { background: #0d1220; border: 1px solid #1e293b; border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
+  .service-header { background: #111827; padding: 12px 18px; display: flex; align-items: center; gap: 10px; }
+  .service-name { color: #00e5ff; font-weight: bold; font-size: 0.95rem; }
+  .service-url  { color: #6b7280; font-size: 0.78rem; }
+  .status-badge { margin-left: auto; font-size: 0.72rem; padding: 3px 10px; border-radius: 20px; }
+  .badge-ok     { background: rgba(0,255,157,0.15); color: #00ff9d; border: 1px solid #00ff9d40; }
+  .badge-err    { background: rgba(239,68,68,0.15);  color: #ef4444; border: 1px solid #ef444440; }
+  .badge-pending{ background: rgba(0,229,255,0.1);  color: #00e5ff; border: 1px solid #00e5ff30; }
+  .endpoints    { padding: 12px 18px; }
+  .ep-row { display: grid; grid-template-columns: 1fr 80px 200px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #1e293b20; font-size: 0.78rem; }
+  .ep-row:last-child { border-bottom: none; }
+  .ep-path  { color: #a5b4fc; }
+  .ep-status { text-align: center; font-weight: bold; }
+  .s-200 { color: #00ff9d; }
+  .s-2xx { color: #7aff6e; }
+  .s-400 { color: #fbbf24; }
+  .s-404 { color: #ef4444; }
+  .s-405 { color: #f97316; }
+  .s-4xx { color: #ef4444; }
+  .s-pending { color: #6b7280; }
+  .ep-body { color: #6b7280; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .ep-body.found { color: #00ff9d; }
+  .btn { background: #1e293b; color: #00e5ff; border: 1px solid #00e5ff40; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-family: monospace; font-size: 0.85rem; margin-right: 8px; margin-bottom: 16px; }
+  .btn:hover { background: #00e5ff20; }
+  .btn-danger { color: #ef4444; border-color: #ef444440; }
+  .btn-danger:hover { background: #ef444420; }
+  .summary { background: #0d1220; border: 1px solid #00e5ff30; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; }
+  .summary h2 { color: #00e5ff; font-size: 0.9rem; margin-bottom: 10px; }
+  pre { background: #050508; border: 1px solid #1e293b; border-radius: 8px; padding: 14px; font-size: 0.72rem; color: #a5b4fc; overflow-x: auto; margin-top: 10px; white-space: pre-wrap; }
+  .copy-btn { float: right; font-size: 0.65rem; padding: 2px 8px; background: #1e293b; color: #6b7280; border: 1px solid #374151; border-radius: 4px; cursor: pointer; }
+  .copy-btn:hover { color: #00e5ff; }
+  .loading-dots::after { content: '…'; animation: dots 1.2s steps(3, end) infinite; }
+  @keyframes dots { 0%,100%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+</style>
+</head>
+<body>
+
+<h1>🔍 AI-PROOF — API Endpoint Explorer</h1>
+<p style="color:#6b7280;font-size:0.8rem;margin-bottom:20px;">Tự động khám phá endpoints đúng trên tất cả Render microservices</p>
+
+<button class="btn" onclick="runAll()">▶ Run All Probes</button>
+<button class="btn" id="copy-config-btn" onclick="copyConfig()" style="display:none">📋 Copy Fixed ai-server.js Config</button>
+
+<div id="summary" class="summary" style="display:none">
+  <h2>✅ Discovered Endpoints</h2>
+  <pre id="summary-content"></pre>
+</div>
+
+<div id="services"></div>
+
+<script>
+const SERVICES = {
+  TEXT:     'https://text-service-glgj.onrender.com',
+  FAKENEWS: 'https://fakenews-service.onrender.com',
+  IMAGE:    'https://image-lchq.onrender.com',
+  UTILITY:  'https://utility-service-m2n3.onrender.com',
+  GATEWAY:  'https://gateway-g5cc.onrender.com',
+};
+
+// Các endpoint cần thử cho từng service
+const PROBE_PATHS = {
+  TEXT: [
+    // FastAPI common patterns
+    { path: '/docs',              method: 'GET',  body: null },
+    { path: '/openapi.json',      method: 'GET',  body: null },
+    { path: '/',                  method: 'GET',  body: null },
+    { path: '/health',            method: 'GET',  body: null },
+    { path: '/ping',              method: 'GET',  body: null },
+    { path: '/analyze',           method: 'POST', body: { text: 'test' } },
+    { path: '/analyze/text',      method: 'POST', body: { text: 'test' } },
+    { path: '/detect',            method: 'POST', body: { text: 'test' } },
+    { path: '/detect-text',       method: 'POST', body: { text: 'test' } },
+    { path: '/detect_text',       method: 'POST', body: { text: 'test' } },
+    { path: '/predict',           method: 'POST', body: { text: 'test' } },
+    { path: '/classify',          method: 'POST', body: { text: 'test' } },
+    { path: '/api/analyze',       method: 'POST', body: { text: 'test' } },
+    { path: '/api/detect',        method: 'POST', body: { text: 'test' } },
+    { path: '/api/v1/analyze',    method: 'POST', body: { text: 'test' } },
+    { path: '/v1/analyze',        method: 'POST', body: { text: 'test' } },
+    { path: '/ai/detect',         method: 'POST', body: { text: 'test' } },
+    { path: '/text/analyze',      method: 'POST', body: { text: 'test' } },
+    { path: '/text/detect',       method: 'POST', body: { text: 'test' } },
+    // Try with 'content' key instead of 'text'
+    { path: '/analyze',           method: 'POST', body: { content: 'test' }, label: '/analyze {content}' },
+    { path: '/detect-text',       method: 'POST', body: { content: 'test' }, label: '/detect-text {content}' },
+    { path: '/detect',            method: 'POST', body: { content: 'test' }, label: '/detect {content}' },
+    { path: '/analyze/url',       method: 'POST', body: { url: 'https://example.com' } },
+  ],
+  FAKENEWS: [
+    { path: '/docs',              method: 'GET',  body: null },
+    { path: '/openapi.json',      method: 'GET',  body: null },
+    { path: '/',                  method: 'GET',  body: null },
+    { path: '/health',            method: 'GET',  body: null },
+    { path: '/detect',            method: 'POST', body: { text: 'test news' } },
+    { path: '/detect-fake-news',  method: 'POST', body: { text: 'test news' } },
+    { path: '/detect_fake_news',  method: 'POST', body: { text: 'test news' } },
+    { path: '/fake-news',         method: 'POST', body: { text: 'test news' } },
+    { path: '/fakenews',          method: 'POST', body: { text: 'test news' } },
+    { path: '/analyze',           method: 'POST', body: { text: 'test news' } },
+    { path: '/classify',          method: 'POST', body: { text: 'test news' } },
+    { path: '/predict',           method: 'POST', body: { text: 'test news' } },
+    { path: '/api/detect',        method: 'POST', body: { text: 'test news' } },
+    { path: '/api/fake-news',     method: 'POST', body: { text: 'test news' } },
+    { path: '/api/v1/detect',     method: 'POST', body: { text: 'test news' } },
+    { path: '/v1/detect',         method: 'POST', body: { text: 'test news' } },
+    { path: '/check',             method: 'POST', body: { text: 'test news' } },
+    { path: '/verify',            method: 'POST', body: { text: 'test news' } },
+    { path: '/analyze',           method: 'POST', body: { content: 'test' }, label: '/analyze {content}' },
+    { path: '/detect',            method: 'POST', body: { content: 'test' }, label: '/detect {content}' },
+  ],
+  IMAGE: [
+    { path: '/docs',              method: 'GET',  body: null },
+    { path: '/openapi.json',      method: 'GET',  body: null },
+    { path: '/',                  method: 'GET',  body: null },
+    { path: '/health',            method: 'GET',  body: null },
+    { path: '/detect',            method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/detect-ai-image',   method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/detect_ai_image',   method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/analyze',           method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/analyze/image',     method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/classify',          method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/predict',           method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/api/detect',        method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/api/image',         method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/image/detect',      method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/v1/detect',         method: 'POST', body: { image: 'dGVzdA==' } },
+    { path: '/check',             method: 'POST', body: { image: 'dGVzdA==' } },
+  ],
+  UTILITY: [
+    { path: '/docs',              method: 'GET',  body: null },
+    { path: '/openapi.json',      method: 'GET',  body: null },
+    { path: '/',                  method: 'GET',  body: null },
+    { path: '/health',            method: 'GET',  body: null },
+    { path: '/ping',              method: 'GET',  body: null },
+    { path: '/version',           method: 'GET',  body: null },
+    { path: '/api/version',       method: 'GET',  body: null },
+    { path: '/hash',              method: 'POST', body: { text: 'test' } },
+    { path: '/blockchain',        method: 'GET',  body: null },
+    { path: '/status',            method: 'GET',  body: null },
+  ],
+  GATEWAY: [
+    { path: '/docs',              method: 'GET',  body: null },
+    { path: '/openapi.json',      method: 'GET',  body: null },
+    { path: '/',                  method: 'GET',  body: null },
+    { path: '/health',            method: 'GET',  body: null },
+    { path: '/ping',              method: 'GET',  body: null },
+    { path: '/routes',            method: 'GET',  body: null },
+    { path: '/api',               method: 'GET',  body: null },
+    { path: '/analyze',           method: 'POST', body: { text: 'test' } },
+    { path: '/api/analyze',       method: 'POST', body: { text: 'test' } },
+  ],
+};
+
+// Track kết quả
+const discovered = {};
+
+async function probeEndpoint(baseUrl, path, method, body, timeoutMs = 20000) {
+  const ctrl  = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const url   = baseUrl + path;
+  try {
+    const opts = {
+      method, mode: 'cors', credentials: 'omit',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      signal: ctrl.signal,
+    };
+    if (body && method !== 'GET') opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    clearTimeout(timer);
+    let text = '';
+    try { text = await res.text(); } catch {}
+    return { status: res.status, ok: res.ok, body: text.slice(0, 120) };
+  } catch (err) {
+    clearTimeout(timer);
+    return { status: 0, ok: false, body: err.name === 'AbortError' ? 'TIMEOUT' : err.message };
+  }
+}
+
+function statusClass(status) {
+  if (status === 0)   return 's-pending';
+  if (status < 300)   return 's-200';
+  if (status === 404) return 's-404';
+  if (status === 405) return 's-405';
+  if (status < 500)   return 's-400';
+  return 's-4xx';
+}
+
+function renderServices() {
+  const container = document.getElementById('services');
+  container.innerHTML = '';
+  for (const [key, baseUrl] of Object.entries(SERVICES)) {
+    const probes = PROBE_PATHS[key] || [];
+    const div = document.createElement('div');
+    div.className = 'service';
+    div.id = `svc-${key}`;
+    div.innerHTML = `
+      <div class="service-header">
+        <div>
+          <div class="service-name">${key}</div>
+          <div class="service-url">${baseUrl}</div>
+        </div>
+        <span class="status-badge badge-pending" id="badge-${key}">pending</span>
+      </div>
+      <div class="endpoints" id="eps-${key}">
+        ${probes.map((p, i) => `
+          <div class="ep-row" id="ep-${key}-${i}">
+            <span class="ep-path">${p.method} ${p.label || p.path}</span>
+            <span class="ep-status s-pending" id="st-${key}-${i}">—</span>
+            <span class="ep-body" id="bd-${key}-${i}"></span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(div);
+  }
+}
+
+async function probeService(key, baseUrl) {
+  const badge = document.getElementById(`badge-${key}`);
+  badge.textContent = 'probing…'; badge.className = 'status-badge badge-pending';
+
+  const probes = PROBE_PATHS[key] || [];
+  discovered[key] = [];
+  let anyFound = false;
+
+  for (let i = 0; i < probes.length; i++) {
+    const p   = probes[i];
+    const stEl = document.getElementById(`st-${key}-${i}`);
+    const bdEl = document.getElementById(`bd-${key}-${i}`);
+    if (stEl) { stEl.textContent = '…'; stEl.className = 'ep-status s-pending'; }
+
+    const result = await probeEndpoint(baseUrl, p.path, p.method, p.body);
+    const cls    = statusClass(result.status);
+
+    if (stEl) { stEl.textContent = result.status || 'ERR'; stEl.className = `ep-status ${cls}`; }
+
+    let bodyPreview = '';
+    if (result.body) {
+      try {
+        const j = JSON.parse(result.body);
+        bodyPreview = JSON.stringify(j).slice(0, 80);
+      } catch {
+        bodyPreview = result.body.replace(/<[^>]+>/g, '').trim().slice(0, 80);
+      }
+    }
+    if (bdEl) {
+      bdEl.textContent = bodyPreview;
+      // Highlight: 2xx = found!, 405 = method not allowed (path exists!), 422 = wrong body (path exists!)
+      const pathExists = result.status >= 200 && result.status < 500 && result.status !== 404 && result.status !== 0;
+      if (pathExists) {
+        bdEl.classList.add('found');
+        discovered[key].push({ path: p.label || p.path, method: p.method, status: result.status, body: bodyPreview, bodyKey: p.body ? Object.keys(p.body)[0] : null });
+        anyFound = true;
+      }
+    }
+  }
+
+  // Update badge
+  if (badge) {
+    badge.textContent = anyFound ? `${discovered[key].length} found` : 'none found';
+    badge.className   = `status-badge ${anyFound ? 'badge-ok' : 'badge-err'}`;
+  }
+}
+
+async function runAll() {
+  renderServices();
+  document.getElementById('summary').style.display = 'none';
+
+  // Probe all services in parallel
+  await Promise.all(
+    Object.entries(SERVICES).map(([key, url]) => probeService(key, url))
+  );
+
+  // Build summary
+  buildSummary();
+}
+
+function buildSummary() {
+  const lines = [];
+  const config = { endpoints: {} };
+
+  for (const [key, finds] of Object.entries(discovered)) {
+    if (!finds || finds.length === 0) { lines.push(`// ${key}: no endpoints found\n`); continue; }
+    lines.push(`// ── ${key}: ${SERVICES[key]}`);
+    finds.forEach(f => {
+      lines.push(`//   ${f.status} ${f.method} ${f.path}  (body key: ${f.bodyKey || 'none'})`);
+    });
+    lines.push('');
+
+    // Pick best endpoint (prefer 2xx > 422 > 405)
+    const best = finds.sort((a, b) => {
+      const scoreA = a.status < 300 ? 3 : a.status === 422 ? 2 : 1;
+      const scoreB = b.status < 300 ? 3 : b.status === 422 ? 2 : 1;
+      return scoreB - scoreA;
+    })[0];
+
+    config.endpoints[key] = { path: best.path.split(' ').pop(), method: best.method, status: best.status, bodyKey: best.bodyKey };
+  }
+
+  const summaryEl  = document.getElementById('summary-content');
+  const summaryDiv = document.getElementById('summary');
+  summaryEl.textContent = lines.join('\n') + '\n\n// ── Suggested config:\n' + JSON.stringify(config, null, 2);
+  summaryDiv.style.display = 'block';
+  document.getElementById('copy-config-btn').style.display = 'inline-block';
+
+  // Store for copy
+  window._discoveredConfig = config;
+}
+
+function copyConfig() {
+  const cfg = window._discoveredConfig;
+  if (!cfg) return;
+
+  // Build ai-server.js snippet
+  const snippet = `// ── DISCOVERED ENDPOINTS (paste into ai-server.js) ──
+// Replace the _resolveServiceUrl function body with these paths:
+
+const ENDPOINT_MAP = ${JSON.stringify(cfg.endpoints, null, 2)};
+
+// Example usage in _post():
+// TEXT service:     ${cfg.endpoints?.TEXT?.method || 'POST'} ${cfg.endpoints?.TEXT?.path || '?'}   body key: "${cfg.endpoints?.TEXT?.bodyKey || '?'}"
+// FAKENEWS service: ${cfg.endpoints?.FAKENEWS?.method || 'POST'} ${cfg.endpoints?.FAKENEWS?.path || '?'}   body key: "${cfg.endpoints?.FAKENEWS?.bodyKey || '?'}"
+// IMAGE service:    ${cfg.endpoints?.IMAGE?.method || 'POST'} ${cfg.endpoints?.IMAGE?.path || '?'}   body key: "${cfg.endpoints?.IMAGE?.bodyKey || '?'}"
+// UTILITY service:  ${cfg.endpoints?.UTILITY?.method || 'GET'}  ${cfg.endpoints?.UTILITY?.path || '?'}
+`;
+  navigator.clipboard.writeText(snippet)
+    .then(() => alert('✓ Copied to clipboard! Paste into ai-server.js'))
+    .catch(() => { document.getElementById('summary-content').select(); document.execCommand('copy'); });
+}
+
+// Auto-run on load
+window.onload = () => { renderServices(); };
+</script>
+</body>
+</html>

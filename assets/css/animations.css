@@ -1,0 +1,196 @@
+/* ═══════════════════════════════════════
+   ANIMATIONS — Keyframes & Motion System
+═══════════════════════════════════════ */
+
+/* ── Fade & Slide In ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Scale ── */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes popIn {
+  0%   { opacity: 0; transform: scale(0.8); }
+  80%  { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Glow pulse ── */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(0,229,255,0.2); }
+  50%       { box-shadow: 0 0 30px rgba(0,229,255,0.6), 0 0 60px rgba(0,229,255,0.2); }
+}
+@keyframes textGlowPulse {
+  0%, 100% { text-shadow: 0 0 10px rgba(0,229,255,0.3); }
+  50%       { text-shadow: 0 0 25px rgba(0,229,255,0.9), 0 0 50px rgba(0,229,255,0.4); }
+}
+
+/* ── Scan line ── */
+@keyframes scanLine {
+  0%   { top: -2px; opacity: 1; }
+  95%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* ── Typing cursor ── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ── Border march ── */
+@keyframes borderMarch {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Data stream ── */
+@keyframes dataStream {
+  from { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  to   { transform: translateY(100%); opacity: 0; }
+}
+
+/* ── Rotate ── */
+@keyframes rotateSlow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes rotateSlowReverse {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+
+/* ── Shake ── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 50%, 90% { transform: translateX(-4px); }
+  30%, 70% { transform: translateX(4px); }
+}
+
+/* ── Ripple ── */
+@keyframes ripple {
+  from { transform: scale(0); opacity: 0.5; }
+  to   { transform: scale(3); opacity: 0; }
+}
+
+/* ── Number count up ── */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Hero orb float ── */
+@keyframes floatOrb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(30px, -20px) scale(1.05); }
+  66%       { transform: translate(-20px, 15px) scale(0.97); }
+}
+
+/* ── Radial burst ── */
+@keyframes radialBurst {
+  from { transform: scale(0.5); opacity: 0.8; }
+  to   { transform: scale(2); opacity: 0; }
+}
+
+/* ── Utility animation classes ── */
+.anim-fadeIn      { animation: fadeIn      0.4s ease both; }
+.anim-fadeInUp    { animation: fadeInUp    0.5s ease both; }
+.anim-fadeInDown  { animation: fadeInDown  0.5s ease both; }
+.anim-slideInLeft { animation: slideInLeft 0.5s ease both; }
+.anim-scaleIn     { animation: scaleIn     0.4s ease both; }
+.anim-popIn       { animation: popIn       0.4s ease both; }
+.anim-glowPulse   { animation: glowPulse   2s ease-in-out infinite; }
+.anim-blink       { animation: blink       1s step-end infinite; }
+.anim-shake       { animation: shake       0.5s ease; }
+
+/* ── Stagger delays ── */
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+.delay-5 { animation-delay: 0.5s; }
+.delay-6 { animation-delay: 0.6s; }
+.delay-7 { animation-delay: 0.7s; }
+.delay-8 { animation-delay: 0.8s; }
+
+/* ── Scanning animation for analysis ── */
+.scan-overlay {
+  position: relative;
+  overflow: hidden;
+}
+.scan-overlay::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+  animation: scanLine 2s linear infinite;
+  box-shadow: 0 0 10px var(--accent-primary);
+}
+
+/* ── Active glow border ── */
+.glow-border {
+  position: relative;
+}
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary), var(--accent-primary));
+  background-size: 200% 200%;
+  animation: borderMarch 3s linear infinite;
+  z-index: -1;
+}
+
+/* ── Page transitions ── */
+.page-enter {
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.page-exit {
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) reverse both;
+}
+
+/* ── Loading sequence ── */
+.loading-dots span {
+  display: inline-block;
+  animation: blink 1.4s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Hero ambient orbs ── */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  animation: floatOrb 12s ease-in-out infinite;
+  pointer-events: none;
+}
+.orb-cyan   { background: var(--accent-primary); }
+.orb-purple { background: var(--accent-secondary); animation-delay: -4s; }
+.orb-green  { background: var(--accent-success);  animation-delay: -8s; }

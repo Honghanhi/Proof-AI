@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+
+  text-service:
+    build: ./text-service
+    ports: ["8001:8001"]
+    environment:
+      PORT: "8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  fakenews-service:
+    build: ./fakenews-service
+    ports: ["8002:8002"]
+    environment:
+      PORT: "8002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  image-service:
+    build: ./image-service
+    ports: ["8003:8003"]
+    environment:
+      PORT: "8003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  gateway:
+    build: ./gateway
+    ports: ["8000:8000"]
+    environment:
+      PORT: "8000"
+      TEXT_SERVICE_URL:     "http://text-service:8001"
+      FAKENEWS_SERVICE_URL: "http://fakenews-service:8002"
+      IMAGE_SERVICE_URL:    "http://image-service:8003"
+      CORS_ORIGINS:         "*"
+    depends_on:
+      text-service:    {condition: service_healthy}
+      fakenews-service:{condition: service_healthy}
+      image-service:   {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

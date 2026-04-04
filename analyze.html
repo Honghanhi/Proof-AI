@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phân tích — AI-PROOF</title>
+  <link rel="stylesheet" href="assets/css/theme.css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+</head>
+<body>
+  <nav class="main-nav">
+    <div class="nav-logo">AI-PROOF</div>
+    <div class="nav-links">
+      <a href="index.html">Trang chủ</a>
+      <a href="analyze.html" class="active">Phân tích</a>
+      <a href="fakenews.html">Fake News</a>
+      <a href="url-check.html">Kiểm tra URL</a>
+      <a href="timeline.html">Dòng thời gian</a>
+      <a href="lab.html">Phòng Lab</a>
+      <a href="diagnostic.html" style="font-size:0.8rem;color:var(--text-secondary);">Chẩn đoán</a>
+    </div>
+  </nav>
+
+  <div id="app" class="page" style="padding-top:100px;">
+    <div class="container">
+      <div class="anim-fadeInUp" style="margin-bottom:40px;">
+        <div class="badge badge-cyan" style="margin-bottom:16px;">◈ Công cụ Xác minh Nội dung</div>
+        <h1>Phân tích <span style="color:var(--accent-primary);">Nội dung</span></h1>
+        <p style="color:var(--text-secondary);margin-top:8px;">Gửi văn bản, dán URL hoặc tải lên hình ảnh để phân tích đa mô hình AI.</p>
+      </div>
+
+      <!-- Mode tabs -->
+      <div class="flex gap-sm anim-fadeInUp delay-1" style="margin-bottom:32px;" id="mode-tabs">
+        <button class="btn btn-primary" data-mode="text" onclick="setMode('text')">📝 Văn bản</button>
+        <button class="btn btn-ghost"   data-mode="image" onclick="setMode('image')">🖼️ Hình ảnh</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:32px;align-items:start;" id="analyze-layout">
+        <!-- Main input -->
+        <div class="anim-fadeInUp delay-2">
+          <!-- Text mode -->
+          <div id="mode-text" class="input-group">
+            <label class="input-label">Nội dung để Phân tích</label>
+            <textarea
+              id="text-input"
+              class="input-field"
+              rows="10"
+              placeholder="Dán bài viết, bài đăng mạng xã hội hoặc bất kỳ nội dung văn bản nào ở đây..."
+            ></textarea>
+            <div class="flex justify-between" style="font-size:0.75rem;color:var(--text-muted);">
+              <span id="char-count">0 ký tự</span>
+              <span>Khuyến nghị tối thiểu 50 ký tự</span>
+            </div>
+          </div>
+
+          <!-- URL mode (hidden by default) -->
+          <div id="mode-url" class="input-group hidden">
+            <label class="input-label">URL Nội dung</label>
+            <input type="url" id="url-input" class="input-field" placeholder="https://example.com/article..." />
+          </div>
+
+          <!-- Image mode (hidden by default) -->
+          <div id="mode-image" class="hidden">
+            <label class="input-label">Tải lên Hình ảnh</label>
+            <div id="drop-zone" style="
+              border:2px dashed var(--border-default);
+              border-radius:var(--radius-lg);
+              padding:32px;
+              text-align:center;
+              cursor:pointer;
+              transition:all var(--trans-normal);
+            "
+              onclick="document.getElementById('img-input').click()"
+              ondragover="event.preventDefault();this.style.borderColor='var(--accent-primary)'"
+              ondragleave="this.style.borderColor='var(--border-default)'"
+              ondrop="event.preventDefault();this.style.borderColor='var(--border-default)';handleImageDrop(event)"
+            >
+              <div id="drop-zone-icon" style="font-size:2.5rem;margin-bottom:12px;">📁</div>
+              <p id="drop-zone-text" style="color:var(--text-secondary);">Thả hình ảnh ở đây hoặc nhấp để duyệt</p>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">JPG, PNG, WebP, GIF, BMP, TIFF, AVIF…</p>
+              <img id="img-preview" style="display:none;max-width:100%;max-height:200px;margin-top:16px;border-radius:var(--radius-md);object-fit:contain;" />
+              <input type="file" id="img-input" accept="image/*" class="hidden"
+                onchange="handleImageSelect(this)" />
+            </div>
+          </div>
+
+          <!-- Options -->
+          <div class="panel mt-lg" style="padding:20px;">
+            <div class="panel-title">Tùy chọn Phân tích</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+                <input type="checkbox" id="opt-consensus" checked style="accent-color:var(--accent-primary);" />
+                Đồng thuận đa mô hình
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+                <input type="checkbox" id="opt-explain" checked style="accent-color:var(--accent-primary);" />
+                Làm nổi bật Giải thích
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+                <input type="checkbox" id="opt-blockchain" checked style="accent-color:var(--accent-primary);" />
+                Blockchain proof
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+                <input type="checkbox" id="opt-realtime" style="accent-color:var(--accent-primary);" />
+                Real-time scan
+              </label>
+            </div>
+          </div>
+
+          <button id="analyze-btn" class="btn btn-primary btn-lg w-full mt-lg" onclick="startAnalysis()">
+            ⬡ Chạy Xác minh
+          </button>
+        </div>
+
+        <!-- Sidebar: live model status -->
+        <div class="anim-fadeInUp delay-3">
+          <div class="panel" id="model-status-panel">
+            <div class="panel-title">Trạng thái Mô hình</div>
+            <div id="model-list" style="display:flex;flex-direction:column;gap:12px;">
+              <!-- populated by JS -->
+            </div>
+          </div>
+
+          <div class="panel mt-lg" id="realtime-panel">
+            <div class="panel-title">Tín hiệu Trực tiếp</div>
+            <div id="realtime-output" style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent-primary);min-height:80px;word-break:break-all;">
+              <span style="color:var(--text-muted);">Awaiting input...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress overlay -->
+      <div id="progress-overlay" class="panel hidden mt-lg">
+        <div class="panel-title">Xác minh Đang tiến hành</div>
+        <div id="progress-steps" style="display:flex;flex-direction:column;gap:12px;"></div>
+        <div class="score-bar mt-lg">
+          <div class="score-bar-fill" id="progress-bar" style="width:0%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/hash.js"></script>
+  <script src="assets/js/merkle.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/blockchain.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/ai-server.js"></script>
+  <script src="assets/js/ai-heuristics.js"></script>
+  <script src="assets/js/ai-models.js"></script>
+  <script src="assets/js/ai-explain.js"></script>
+  <script src="assets/js/consensus.js"></script>
+  <script src="assets/js/trust-score.js"></script>
+  <script src="assets/js/ai.js"></script>
+  <script src="assets/js/realtime-scan.js"></script>
+  <script src="assets/js/ai-gemini.js"></script>
+  <script src="assets/js/analyze-page.js"></script>
+  <script>
+  function _showImagePreview(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file);
+    const preview = document.getElementById('img-preview');
+    const icon    = document.getElementById('drop-zone-icon');
+    const text    = document.getElementById('drop-zone-text');
+    preview.onload = () => URL.revokeObjectURL(url);
+    preview.src    = url;
+    preview.style.display = 'block';
+    icon.style.display    = 'none';
+    text.textContent      = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+  }
+  function handleImageSelect(input) {
+    if (input.files?.[0]) _showImagePreview(input.files[0]);
+  }
+  function handleImageDrop(event) {
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    // Inject vào input để startAnalysis đọc được
+    const input = document.getElementById('img-input');
+    const dt    = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    _showImagePreview(file);
+  }
+  </script>
+</body>
+</html>

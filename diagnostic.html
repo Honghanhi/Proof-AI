@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Diagnostic — AI-PROOF</title>
+  <link rel="stylesheet" href="assets/css/theme.css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/animations.css" />
+  <style>
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .status-ok { background: var(--accent-success); }
+    .status-error { background: var(--accent-danger); }
+    .status-pending { background: var(--accent-warn); animation: pulse 1s infinite; }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    .log-box {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      max-height: 300px;
+      overflow-y: auto;
+      color: var(--accent-primary);
+      line-height: 1.6;
+    }
+    
+    .log-line {
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+    
+    .log-ok { color: var(--accent-success); }
+    .log-error { color: var(--accent-danger); }
+    .log-warn { color: var(--accent-warn); }
+  </style>
+</head>
+<body>
+  <nav class="main-nav">
+    <div class="nav-logo">AI-PROOF</div>
+    <div class="nav-links">
+      <a href="index.html">Trang chủ</a>
+      <a href="analyze.html">Phân tích</a>
+      <a href="fakenews.html">Tin giả</a>
+      <a href="url-check.html">Kiểm tra URL</a>
+      <a href="timeline.html">Dòng thời gian</a>
+      <a href="lab.html">Phòng Lab</a>
+      <a href="diagnostic.html" class="active">Chẩn đoán</a>
+    </div>
+  </nav>
+
+  <div id="app" class="page" style="padding-top:100px;">
+    <div class="container">
+      <div class="anim-fadeInUp" style="margin-bottom:40px;">
+        <div class="badge badge-cyan" style="margin-bottom:16px;">🔧 Chẩn đoán API</div>
+        <h1>Kiểm tra Sức khỏe <span style="color:var(--accent-primary);">Hệ thống</span></h1>
+        <p style="color:var(--text-secondary);margin-top:8px;">Kiểm tra nếu tất cả các dịch vụ đều có thể truy cập và hoạt động chính xác.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+        <!-- Status Panel -->
+        <div class="anim-fadeInUp delay-1">
+          <div class="panel">
+            <div class="panel-title">Trạng thái Dịch vụ</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="status-indicator status-pending" id="status-config"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:0.9rem;">Cấu hình</div>
+                  <div style="font-size:0.75rem;color:var(--text-secondary);" id="config-detail">Đang tải...</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;padding:8px;background:rgba(0,229,255,0.08);border-radius:6px;margin-bottom:8px;">
+                <span class="status-indicator" style="background:var(--accent-primary);"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:0.9rem;">Định tuyến</div>
+                  <div style="font-size:0.75rem;color:var(--accent-primary);">🔀 Trực tiếp tới dịch vụ (Bỏ qua Gateway)</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="status-indicator status-pending" id="status-text"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:0.9rem;">Dịch vụ Văn bản</div>
+                  <div style="font-size:0.75rem;color:var(--text-secondary);" id="text-detail">Đang kiểm tra...</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="status-indicator status-pending" id="status-fakenews"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:0.9rem;">Fake News Service</div>
+                  <div style="font-size:0.75rem;color:var(--text-secondary);" id="fakenews-detail">Testing...</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="status-indicator status-pending" id="status-image"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:0.9rem;">Image Service</div>
+                  <div style="font-size:0.75rem;color:var(--text-secondary);" id="image-detail">Testing...</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="status-indicator status-pending" id="status-utility"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:0.9rem;">Utility Service</div>
+                  <div style="font-size:0.75rem;color:var(--text-secondary);" id="utility-detail">Testing...</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);">
+                <span class="status-indicator" id="status-ai-mode"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:0.9rem;">AI Mode</div>
+                  <div style="font-size:0.75rem;color:var(--text-secondary);" id="ai-mode-detail">—</div>
+                </div>
+              </div>
+
+              <!-- Mode Selector -->
+              <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-subtle);display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="setMode('server')" id="btn-mode-server" class="btn btn-outline" style="flex:1;min-width:80px;font-size:0.75rem;padding:6px 8px;">🔗 Server</button>
+                <button onclick="setMode('cdn')" id="btn-mode-cdn" class="btn btn-outline" style="flex:1;min-width:80px;font-size:0.75rem;padding:6px 8px;">💻 CDN</button>
+                <button onclick="setMode('local')" id="btn-mode-local" class="btn btn-outline" style="flex:1;min-width:80px;font-size:0.75rem;padding:6px 8px;">📁 Local</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logs Panel -->
+        <div class="anim-fadeInUp delay-2">
+          <div class="panel">
+            <div class="panel-title">Diagnostic Log</div>
+            <div class="log-box" id="log-box">
+              <div class="log-line">Initializing...</div>
+            </div>
+            <button class="btn btn-outline w-full mt-lg" onclick="clearLog()">Clear Log</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Test Section -->
+      <div class="panel mt-xl anim-fadeInUp delay-3">
+        <div class="panel-title">Test API Endpoints</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+          <button class="btn btn-ghost" onclick="testAnalyzeText()">📝 Test Text Analysis</button>
+          <button class="btn btn-ghost" onclick="testDetectFakeNews()">📰 Test Fake News</button>
+          <button class="btn btn-ghost" onclick="testURLAnalysis()">🔗 Test URL Check</button>
+          <button class="btn btn-ghost" onclick="testImageDetection()">🖼️ Test Image API</button>
+          <button class="btn btn-ghost" onclick="testHealthCheck()">❤️ Test Health Check</button>
+          <button class="btn btn-ghost" onclick="runFullDiagnostic()">⚡ Run Full Diagnostic</button>
+        </div>
+      </div>
+
+      <!-- Troubleshooting Info -->
+      <div class="panel mt-xl anim-fadeInUp delay-4" style="background:rgba(125,63,237,0.05);border-color:var(--accent-secondary);">
+        <div class="panel-title" style="color:var(--accent-secondary);">🔧 How It Works</div>
+        <div style="font-size:0.875rem;color:var(--text-secondary);line-height:1.8;">
+          <p><strong>🔀 Direct Service Routing</strong></p>
+          <p style="margin:8px 0 16px;">App bypasses gateway and routes directly to individual Render services:</p>
+          <ul style="margin:0 0 16px 20px;">
+            <li><code>/analyze/text</code> → text-service-glgj.onrender.com</li>
+            <li><code>/detect-fake-news</code> → fakenews-service.onrender.com</li>
+            <li><code>/analyze/image</code>, <code>/detect-ai-image</code> → image-lchq.onrender.com</li>
+            <li><code>/blockchain/*</code>, <code>/version/*</code> → utility-service-m2n3.onrender.com</li>
+          </ul>
+          
+          <p><strong>⏱️ Timeout on first run?</strong></p>
+          <p style="margin:8px 0 16px;">Render spins down inactive services. First request takes 20-60 seconds. Be patient! ⏳</p>
+          
+          <p><strong>❌ Still timing out after 1min?</strong></p>
+          <p style="margin:8px 0 16px;">Check <a href="https://dashboard.render.com" target="_blank" style="color:var(--accent-primary);">Render Dashboard</a> - service may be down or out of credits.</p>
+          
+          <p><strong>💡 Hint:</strong> Try "Run Full Diagnostic" twice - first run wakes services, second run should succeed.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="assets/js/ai-gemini.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/ai-server.js"></script>
+  <script src="assets/js/ai.js"></script>
+  <script>
+    let logs = [];
+
+    function log(msg, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const line = `[${timestamp}] ${msg}`;
+      logs.push({ msg: line, type });
+      renderLogs();
+      console.log(`[${type.toUpperCase()}]`, msg);
+    }
+
+    function renderLogs() {
+      const box = document.getElementById('log-box');
+      const html = logs.map(l => {
+        const cls = l.type === 'ok' ? 'log-ok' : l.type === 'error' ? 'log-error' : l.type === 'warn' ? 'log-warn' : '';
+        return `<div class="log-line ${cls}">${l.msg}</div>`;
+      }).join('');
+      box.innerHTML = html;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function clearLog() {
+      logs = [];
+      renderLogs();
+    }
+
+    async function runFullDiagnostic() {
+      clearLog();
+      log('🔧 Starting full diagnostic...', 'info');
+      log('');
+      
+      await checkConfig();
+      log('');
+      log('ℹ️ Skipping gateway test (bypassed via direct service routing)', 'warn');
+      log('');
+      await testService('text', CONFIG.SERVICES?.TEXT || 'N/A');
+      log('');
+      await testService('fakenews', CONFIG.SERVICES?.FAKENEWS || 'N/A');
+      log('');
+      await testService('image', CONFIG.SERVICES?.IMAGE || 'N/A');
+      log('');
+      await testService('utility', CONFIG.SERVICES?.UTILITY || 'N/A');
+      log('');
+      log('✅ Diagnostic complete! (All working services found)', 'ok');
+    }
+
+    function checkConfig() {
+      log('📋 Configuration Check:', 'info');
+      const el = document.getElementById('config-detail');
+      const status = document.getElementById('status-config');
+      
+      if (CONFIG.IS_LOCAL) {
+        log('Environment: LOCAL development (using Render backend)', 'ok');
+        el.textContent = 'Local dev → Render APIs';
+        status.className = 'status-indicator status-ok';
+      } else {
+        log('Environment: PRODUCTION (Render)', 'ok');
+        el.textContent = 'Production (Render)';
+        status.className = 'status-indicator status-ok';
+      }
+      
+      log(`API Base URL: ${CONFIG.API_BASE_URL}`, 'info');
+      log(`AI Mode: ${CONFIG.AI_MODE_DEFAULT}`, 'info');
+      
+      if (CONFIG.SERVICES) {
+        log('✅ Render microservices configured:', 'ok');
+        Object.entries(CONFIG.SERVICES).forEach(([key, url]) => {
+          log(`  ${key}: ${url}`, 'info');
+        });
+      }
+      
+      log('🔀 API Routing:', 'info');
+      log('  /analyze/text, /detect-text, /analyze/url → TEXT service', 'info');
+      log('  /detect-fake-news → FAKENEWS service', 'info');
+      log('  /analyze/image, /detect-ai-image → IMAGE service', 'info');
+      log('  /blockchain/*, /version/* → UTILITY service', 'info');
+    }
+
+    async function testService(name, url) {
+      if (!url || url === 'N/A') {
+        log(`❌ ${name}: URL not configured`, 'error');
+        updateStatus(name, 'error');
+        return;
+      }
+
+      log(`🧪 Testing ${name}: ${url} (timeout: 30s for cold-start)`, 'info');
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => {
+          log(`⏱️ ${name}: Timeout (Render may be starting up - try again in 30s)`, 'warn');
+          controller.abort();
+        }, 30000); // 30 seconds for Render cold start
+        
+        const startTime = performance.now();
+        const res = await fetch(url + '/health', { 
+          signal: controller.signal,
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json',
+          }
+        });
+        clearTimeout(timer);
+        
+        const elapsed = Math.round(performance.now() - startTime);
+        
+        if (res.ok) {
+          log(`✅ ${name} is reachable (${res.status}, ${elapsed}ms)`, 'ok');
+          updateStatus(name, 'ok', url);
+        } else {
+          log(`⚠️ ${name} returned ${res.status} (${elapsed}ms)`, 'warn');
+          updateStatus(name, 'warn', url);
+        }
+      } catch (err) {
+        const errorMsg = err.name === 'AbortError' 
+          ? 'Timeout or aborted (Render cold-start?)' 
+          : err.message;
+        log(`❌ ${name} error: ${errorMsg}`, 'error');
+        
+        // Helpful message for common errors
+        if (err.message.includes('CORS') || err.message.includes('cross-origin')) {
+          log(`   💡 CORS issue - backend may not allow requests from this origin`, 'warn');
+        } else if (err.name === 'AbortError') {
+          log(`   💡 Render service may be starting (cold-start). Try again in 30s.`, 'warn');
+        } else if (err.message.includes('Failed to fetch')) {
+          log(`   💡 Could not reach backend. Check network & Render status.`, 'warn');
+        }
+        
+        updateStatus(name, 'error', url);
+      }
+    }
+
+    function updateStatus(service, state, url = '') {
+      const statusEl = document.getElementById(`status-${service}`);
+      const detailEl = document.getElementById(`${service}-detail`);
+      
+      if (state === 'ok') {
+        statusEl.className = 'status-indicator status-ok';
+        detailEl.textContent = url ? '✓ Reachable' : 'OK';
+      } else if (state === 'error') {
+        statusEl.className = 'status-indicator status-error';
+        detailEl.textContent = url ? '✗ Unreachable' : 'ERROR';
+      } else {
+        statusEl.className = 'status-indicator status-warn';
+        detailEl.textContent = 'Warning';
+      }
+    }
+
+    async function testHealthCheck() {
+      log('❤️ Testing API health check...', 'info');
+      try {
+        const ok = await AIServer.healthCheck();
+        if (ok) {
+          log('✅ Backend is reachable!', 'ok');
+        } else {
+          log('❌ Backend is not reachable', 'error');
+        }
+      } catch (err) {
+        log(`❌ Health check failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function testAnalyzeText() {
+      log('📝 Testing text analysis...', 'info');
+      try {
+        const result = await AIServer.analyzeText('This is a test message to check if the API is working correctly.');
+        log(`✅ Text analysis successful`, 'ok');
+        log(`   Trust Score: ${result.trustScore}`, 'info');
+        log(`   Models: ${result.models?.length || 0}`, 'info');
+      } catch (err) {
+        log(`❌ Text analysis failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function testDetectFakeNews() {
+      log('📰 Testing fake news detection...', 'info');
+      try {
+        const result = await AIServer.detectFakeNews('Breaking news: Scientists discover...');
+        log(`✅ Fake news detection successful`, 'ok');
+        log(`   Risk Score: ${result.aiPct || result.fakePct}%`, 'info');
+      } catch (err) {
+        log(`❌ Fake news detection failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function testURLAnalysis() {
+      log('🔗 Testing URL analysis...', 'info');
+      try {
+        const result = await AIServer.analyzeURL('https://example.com');
+        log(`✅ URL analysis successful`, 'ok');
+        log(`   Result type: ${typeof result}`, 'info');
+      } catch (err) {
+        log(`❌ URL analysis failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function testImageDetection() {
+      log('🖼️ Testing image detection...', 'info');
+      log('📝 Note: skipping actual test (requires image file)', 'warn');
+    }
+
+    function setMode(mode) {
+      if (!CONFIG.AI_MODES.includes(mode)) {
+        log(`❌ Invalid mode: ${mode}`, 'error');
+        return;
+      }
+
+      // Store in localStorage
+      localStorage.setItem('AI_MODE_OVERRIDE', mode);
+      
+      // Update STATE if available
+      if (typeof STATE !== 'undefined' && STATE?.set) {
+        STATE.set('aiMode', mode);
+      }
+
+      log(`✅ AI Mode changed to: ${mode}`, 'ok');
+      
+      // Update UI
+      document.querySelectorAll('[id^="btn-mode-"]').forEach(btn => {
+        btn.className = 'btn btn-outline';
+      });
+      document.getElementById(`btn-mode-${mode}`).className = 'btn btn-primary';
+      
+      // Update indicator
+      const indicator = document.getElementById('status-ai-mode');
+      const detail = document.getElementById('ai-mode-detail');
+      indicator.className = 'status-indicator status-ok';
+      detail.textContent = mode.toUpperCase();
+      
+      // Reload to apply new mode
+      log('🔄 Reloading page to apply new mode...', 'info');
+      setTimeout(() => window.location.reload(), 500);
+    }
+
+    function updateModeButtons() {
+      const currentMode = CONFIG.AI_MODE_DEFAULT;
+      document.querySelectorAll('[id^="btn-mode-"]').forEach(btn => {
+        const mode = btn.id.replace('btn-mode-', '');
+        if (mode === currentMode) {
+          btn.className = 'btn btn-primary';
+        } else {
+          btn.className = 'btn btn-outline';
+        }
+      });
+    }
+
+    // Run initial checks
+    document.addEventListener('DOMContentLoaded', async () => {
+      log('🚀 Diagnostic page loaded', 'info');
+      await checkConfig();
+      
+      // Update AI mode
+      const aiModeEl = document.getElementById('ai-mode-detail');
+      const aiModeStat = document.getElementById('status-ai-mode');
+      const mode = CONFIG.AI_MODE_DEFAULT;
+      aiModeEl.textContent = mode;
+      aiModeStat.className = `status-indicator status-${mode === 'server' ? 'pending' : 'ok'}`;
+      
+      // Highlight current mode button
+      updateModeButtons();
+    });
+  </script>
+</body>
+</html>
