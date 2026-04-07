@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 //  URL-PAGE  v3.1  — AI-FREE INTEGRATED  [PATCHED]
 //
 //  PATCH v3.1 (2026-04-04):
@@ -14,7 +14,7 @@
 //  • VirusTotal scan (500/day free, hỗ trợ .vn)
 //  • URLScan.io (1000/day free, hỗ trợ .vn)
 //  • IPInfo geo (50k/month free)
-//  • AI analysis: Gemini / Groq / OpenRouter
+//  • AI analysis: Groq / OpenRouter (Gemini removed)
 //  • Screenshot: URLScan screenshot API
 // ═══════════════════════════════════════════════════════════════
 
@@ -243,8 +243,7 @@ Trả về JSON (KHÔNG có markdown, KHÔNG có text ngoài JSON):
       // ── Gọi AI ──────────────────────────────────────────────
       let rawAI = null;
       try {
-        rawAI = await callGeminiJSON(prompt, 1000).catch(() => null)
-              || await callAIJSON(prompt, 1000).catch(() => null);
+        rawAI = await callAIJSON(prompt, 1000).catch(() => null);
       } catch {}
 
       // ── Force-override: nếu AI trả sai → sửa lại ──────────
@@ -434,7 +433,7 @@ function _displayAICard(ai, threatData) {
   document.getElementById('url-ai-card')?.remove();
 
   const AI_NAME = typeof AIBackend !== 'undefined'
-    ? ((()=>({gemini:true,groq:false,openrouter:false,anyAvailable:AIBackend.isOnline()}))()?.gemini ? 'Gemini Flash' : (()=>({gemini:true,groq:false,openrouter:false,anyAvailable:AIBackend.isOnline()}))()?.groq ? 'Groq/Llama3' : 'AI')
+    ? (AIBackend.getAvailableAI?.()[0] || 'AI')
     : 'AI';
 
   const V = {
@@ -813,14 +812,16 @@ function _detectGambling(urlString) {
 // ── Source code scan ──────────────────────────────────────────
 async function _fetchAndScanSource(urlString) {
   const result = { html:'', scripts:[], adNetworks:[], suspiciousScripts:[], hasGamblingAds:false, threats:[], addedScore:0 };
-  try {
-    // Dùng backend proxy để tránh CORS
-    const html = await AIBackend.fetchSource(urlString);
-    result.html = html || '';
-    _sourceHTML = result.html;
-  } catch (err) { result.fetchError = err.message; }
-  if (!result.html) return result;
+  
+  // Lưu ý: Fetch mã nguồn từ frontend bị CORS block
+  // Đó là lý do chủ yếu khiến URL check block
+  // Nếu cần: thêm backend endpoint hoặc bỏ qua scan này
+  // console.warn('[URL] Source code scan disabled: CORS protection');
+  
+  // Skip source scan - không fetch được từ frontend
+  return result; // Trả về object rỗng, process vẫn tiếp tục
 
+  _sourceHTML = result.html;
   const scriptMatches = [...result.html.matchAll(/<script[^>]*src=["']([^"']+)["'][^>]*>/gi)];
   result.scripts = scriptMatches.map(m => m[1]).filter(Boolean);
   const inlines  = [...result.html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
@@ -1078,8 +1079,8 @@ function _displayResults(result, urlString) {
   _setText('rec-icon', rI); _setText('rec-title', rT); _setText('rec-description', rD);
 
   // Status indicator: AI source
-  const aiStatus = (()=>({gemini:true,groq:false,openrouter:false,anyAvailable:AIBackend.isOnline()}))();
-  const aiSource = aiStatus.gemini ? 'Gemini Flash' : aiStatus.groq ? 'Groq/Llama3' : aiStatus.openrouter ? 'OpenRouter' : null;
+  const aiStatus = AIBackend?.getStatus?.() || { ai: {} };
+  const aiSource = aiStatus.ai.groq ? 'Groq/Llama3' : aiStatus.ai.openrouter ? 'OpenRouter' : null;
   if (aiSource) {
     const badge = document.createElement('div');
     badge.style.cssText = 'font-size:0.68rem;color:var(--text-muted);font-family:monospace;margin-bottom:12px;';
@@ -1111,8 +1112,14 @@ function _done(id) {
 
 // ── DOM init ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // URL input: Enter to check
   document.getElementById('url-input')?.addEventListener('keypress', e => {
     if (e.key === 'Enter') startURLCheck();
+  });
+  
+  // Check button: Click to check
+  document.getElementById('check-btn')?.addEventListener('click', () => {
+    startURLCheck();
   });
 
   const rs = document.getElementById('results-section');
@@ -1135,21 +1142,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Hiện AI status banner
-  const status = AIBackend.getStatus();
-  const hasAI  = status.ai.gemini || status.ai.groq || status.ai.openrouter;
-  const hasVT  = status.domain.virustotal;
-  if (!hasAI) {
-    const container = document.querySelector('.container');
-    if (container) {
-      const banner = document.createElement('div');
-      banner.style.cssText = 'padding:12px 16px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:var(--radius-md);margin-bottom:20px;font-size:0.8rem;color:var(--text-secondary);';
-      banner.innerHTML = `
-        <strong style="color:var(--accent-warn);">⚙️ Cần cấu hình API keys</strong> để có đầy đủ tính năng:
-        <br><span style="font-size:0.75rem;">Utility Service đang offline. Kiểm tra Render.com deployment.</span>`;
-      const firstChild = container.querySelector('.anim-fadeInUp');
-      if (firstChild) firstChild.insertAdjacentElement('beforebegin', banner);
-      else container.insertAdjacentElement('afterbegin', banner);
-    }
-  }
 });

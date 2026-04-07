@@ -70,14 +70,23 @@ const AIFreeConfig = (() => {
 
   async function _fetchJSON(url, opts = {}, timeoutMs = 12000) {
     const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let completed = false;
+    const timer = setTimeout(() => {
+      if (!completed) ctrl.abort();
+    }, timeoutMs);
     try {
       const res = await fetch(url, { ...opts, signal: ctrl.signal });
+      completed = true;
       clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
+      completed = true;
       clearTimeout(timer);
+      // Ignore AbortError so callers can handle gracefully
+      if (err.name === 'AbortError') {
+        console.warn(`[Fetch] Timeout after ${timeoutMs}ms for ${url}`);
+      }
       throw err;
     }
   }
@@ -85,24 +94,6 @@ const AIFreeConfig = (() => {
   // ═══════════════════════════════════════════════════════════
   //  AI MODELS
   // ═══════════════════════════════════════════════════════════
-
-  // ── Gemini Flash (Google) ──────────────────────────────────
-  // Gọi trực tiếp từ browser — CORS OK
-  async function _gemini(prompt, maxTokens = 1000) {
-    if (!_hasKey('GEMINI')) return null;
-    const data = await _fetchJSON(
-      `${EP.GEMINI}?key=${KEYS.GEMINI}`,
-      {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 },
-        }),
-      }
-    );
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
-  }
 
   // ── Groq (Llama 3.1 8B — ultrafast) ──────────────────────
   // Gọi trực tiếp từ browser — CORS OK
@@ -145,7 +136,7 @@ const AIFreeConfig = (() => {
   }
 
   /**
-   * Gọi AI theo thứ tự ưu tiên: Gemini → Groq → OpenRouter
+   * Gọi AI theo thứ tự ưu tiên: Groq → OpenRouter
    * Tự động fallback nếu key trống hoặc API lỗi
    * @param {string} prompt
    * @param {number} maxTokens
@@ -153,7 +144,6 @@ const AIFreeConfig = (() => {
    */
   async function callAI(prompt, maxTokens = 1000) {
     const providers = [
-      { name: 'Gemini', fn: () => _gemini(prompt, maxTokens) },
       { name: 'Groq',   fn: () => _groq(prompt, maxTokens)   },
       { name: 'OpenRouter', fn: () => _openrouter(prompt, maxTokens) },
     ];

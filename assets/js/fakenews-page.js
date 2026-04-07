@@ -4,53 +4,22 @@
 // Fix:
 //  1. Lưu kết quả vào DB.saveResult() + Blockchain.addResult()
 //     → xuất hiện trong Timeline sau khi phân tích
-//  2. AI Deep Fact-Check qua Claude API (free, không backend mới)
+//  2. AI Analysis via fakenews-service (microservice)
 //     → phân tích claim, bias, logical fallacies
 //  3. Fix bug: title-only content vẫn đúng validation
 //  4. Claim extractor interactive
 // ═══════════════════════════════════════════════════════════════
 
-// ── Claude API helper — dùng ai-proxy-config.js ──────────────
-// Proxy giải quyết CORS. Nếu chưa setup → AI disabled tự động.
+// ── fakenews-service helper ─────────────────────────────────
+// Uses AIServer.detectFakeNews which calls the microservice directly.
 async function _fnCallClaude(prompt, maxTokens = 1000) {
-  return null; // Dùng callAIJSON trực tiếp
+  return null; // fakenews-service handles all analysis
 }
 
-// ── AI Fact-Check qua Claude ──────────────────────────────────
+// ── AI Fact-Check (via fakenews-service) ──────────────────────
 async function _aiFactCheck(title, content) {
-  const combined = `${title}\n\n${content}`.slice(0, 2500);
-  const prompt = `Bạn là fact-checker chuyên nghiệp. Phân tích bài viết tin tức sau:
-
-TIÊU ĐỀ: ${title}
-NỘI DUNG: ${combined}
-
-Trả về JSON (không markdown, không text khác):
-{
-  "verdict": "authentic|misleading|satire|fabricated|uncertain",
-  "fakePct": 0-100,
-  "realPct": 0-100,
-  "confidence": 0-100,
-  "summary": "tóm tắt đánh giá 1-2 câu tiếng Việt",
-  "claims": [
-    {
-      "text": "nội dung claim trích từ bài",
-      "status": "verifiable|unverifiable|false_logic|emotional",
-      "credibility": 0-100,
-      "note": "ghi chú ngắn"
-    }
-  ],
-  "biasType": "political|emotional|sensational|commercial|none",
-  "biasDescription": "mô tả thiên vị nếu có",
-  "emotionalManipulation": "mô tả hoặc null",
-  "logicalFallacies": ["tên fallacy nếu có"],
-  "redFlags": ["dấu hiệu đáng ngờ cụ thể"],
-  "trustFactors": ["yếu tố tích cực nếu có"],
-  "checkSources": ["nguồn đề xuất để fact-check"],
-  "overallAssessment": "đánh giá tổng thể 2-3 câu tiếng Việt"
-}`;
-
-  // Dùng proxy helper từ ai-proxy-config.js
-  return await AIBackend.callAIJSON(prompt, 1200);
+  // Now handled by AIServer.detectFakeNews
+  return null;
 }
 
 // ── Save result vào DB + Blockchain ───────────────────────────
@@ -164,81 +133,66 @@ async function startFakeNewsCheck() {
     { id: 'fetch',    label: 'Kết nối đến máy chủ AI…'         },
     { id: 'analyze',  label: 'Phân tích nội dung & ngôn ngữ…'  },
     { id: 'sources',  label: 'Kiểm tra độ tin cậy nguồn…'      },
-    { id: 'ai',       label: 'AI Claude fact-check chuyên sâu…' },
+    { id: 'ai',       label: 'Xử lý qua fakenews-service…'     },
     { id: 'consensus',label: 'Tính toán điểm rủi ro cuối…'     },
   ]);
   _bar(8);
 
   try {
-    // ── Bước 1: Server health check ──
-    let ok = AIServer.isReachable('FAKENEWS');
-    if (!ok) {
-      UI.toast('Đang khởi động AI server — chờ tối đa 60s…', 'info', 8000);
-      ok = await AIServer.healthCheck('FAKENEWS');
-    }
+    // ── Bước 1: Server health check (timeout 6s, không dùng cache) ──
+    // FIX: isReachable() trả về cache cũ → báo off dù server đang live.
+    // Luôn gọi healthCheck thật, nhưng giới hạn 6s để không block lâu.
+    let ok = false;
+    try {
+      const HEALTH_TIMEOUT = 6000;
+      ok = await Promise.race([
+        AIServer.healthCheck('FAKENEWS'),
+        new Promise(resolve => setTimeout(() => resolve(false), HEALTH_TIMEOUT)),
+      ]);
+    } catch (_) { ok = false; }
     _bar(20); _done('fetch');
 
     // ── Bước 2: AI Server detection ──
     let result, usedServer = false;
-    if (ok) {
-      try {
-        result     = await AIServer.detectFakeNews(fullContent);
-        usedServer = true;
-        _bar(50);
-        _done('analyze'); _done('sources');
-      } catch (err) {
-        console.warn('[FakeNews] Server error, local fallback:', err.message);
-        UI.toast('Server bận — dùng phân tích cục bộ.', 'warn', 4000);
-        result = await _localAnalysis(fullContent, title);
-        _done('analyze'); _done('sources');
-      }
-    } else {
-      UI.toast('Server ngoại tuyến — phân tích cục bộ (độ chính xác giới hạn).', 'warn', 5000);
-      result = await _localAnalysis(fullContent, title);
+    if (!ok) {
+      console.error('[FakeNews] Backend not available');
+      throw new Error('Backend required - no local fallback');
+    }
+
+    try {
+      result     = await AIServer.detectFakeNews(fullContent);
+      usedServer = true;
+      _bar(50);
       _done('analyze'); _done('sources');
+    } catch (err) {
+      console.error('[FakeNews] Backend error:', err.message);
+      throw err;
     }
 
     result._source = usedServer
       ? (result.models?.[0]?.modelName || 'Server Model')
       : 'Local Heuristics';
 
-    // ── Bước 3: AI Claude fact-check ──
-    _bar(65);
-    let aiAnalysis = null;
-    try {
-      aiAnalysis = await _aiFactCheck(title, content || title);
-      if (aiAnalysis) {
-        // Merge AI result với server result
-        result.aiAnalysis = aiAnalysis;
-        // AI có thể cho điểm fakePct chính xác hơn
-        if (aiAnalysis.fakePct !== undefined && usedServer === false) {
-          result.fakePct   = aiAnalysis.fakePct;
-          result.realPct   = aiAnalysis.realPct || (100 - aiAnalysis.fakePct);
-          result.aiPct     = aiAnalysis.fakePct;
-          result.humanPct  = 100 - aiAnalysis.fakePct;
-          result.confidence = (aiAnalysis.confidence || 70) / 100;
-        }
-      }
-    } catch (aiErr) {
-      console.warn('[FakeNews] Claude AI failed:', aiErr.message);
-    }
-    _done('ai'); _bar(85);
+    // ── Bước 3: Results from fakenews-service ──
+    _bar(85);
+    _done('ai');
+    
+    // Result from AIServer.detectFakeNews already contains full analysis
 
     // ── Bước 4: Compute final ──
     _done('consensus'); _bar(100);
 
     // ── Bước 5: Hiển thị kết quả ──
-    setTimeout(async () => {
-      _displayResults(result, fullContent, sourceURL, pubDate);
-      if (aiAnalysis) _displayAIAnalysis(aiAnalysis);
-      UI.hide('processing-overlay');
-      UI.show('results-section');
+    // FIX: _saveFakeNewsResult không cần await — fire-and-forget để UI
+    // phản hồi ngay, không block việc re-enable nút check.
+    _displayResults(result, fullContent, sourceURL, pubDate);
+    UI.hide('processing-overlay');
+    UI.show('results-section');
+    if (checkBtn) checkBtn.disabled = false;
 
-      // ── BUG FIX: Lưu vào DB + Blockchain ──
-      await _saveFakeNewsResult(result, fullContent, title, sourceURL);
-
-      if (checkBtn) checkBtn.disabled = false;
-    }, 400);
+    _saveFakeNewsResult(result, fullContent, title, sourceURL).catch(e =>
+      console.warn('[FakeNews] Background save failed:', e.message)
+    );
 
   } catch (err) {
     console.error('[FakeNews]', err);
@@ -246,33 +200,6 @@ async function startFakeNewsCheck() {
     UI.hide('processing-overlay');
     if (checkBtn) checkBtn.disabled = false;
   }
-}
-
-// ── Local analysis fallback ───────────────────────────────────
-async function _localAnalysis(content, title) {
-  const text = `${title}\n${content}`.toLowerCase();
-  const sensational  = ['exclusive','shocking','breaking','unbelievable','developing','bombshell','secret','revealed','exposed','leaked'];
-  const unverifiable = ['alleged','reportedly','supposedly','possibly','may have','sources say','insiders claim','anonymous'];
-  const capsWords    = (content.match(/[A-Z]{3,}/g) || []).length;
-  const exclMarks    = (content.match(/!/g) || []).length;
-  const questMarks   = (content.match(/\?/g) || []).length;
-  const sensHits     = sensational.filter(w => text.includes(w)).length;
-  const unverifHits  = unverifiable.filter(w => text.includes(w)).length;
-  const riskScore = Math.min(
-    sensHits * 10 + unverifHits * 5 + Math.min(capsWords * 2, 20) + (exclMarks + questMarks) * 3,
-    100
-  );
-  return {
-    fakePct:    riskScore,
-    realPct:    100 - riskScore,
-    aiPct:      riskScore,
-    humanPct:   100 - riskScore,
-    trustScore: 100 - riskScore,
-    confidence: 0.55,
-    signals:    [],
-    models:     [{ modelId: 'heuristic', modelName: 'Local Heuristics', confidence: 0.55 }],
-    verdict:    CONFIG.getVerdict(100 - riskScore),
-  };
 }
 
 // ── Display AI Analysis Card ──────────────────────────────────
@@ -343,9 +270,9 @@ function _displayAIAnalysis(ai) {
   card.className = 'panel mb-lg anim-fadeInUp';
   card.innerHTML = `
     <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;">
-      <span>🤖 Phân tích AI — Claude</span>
+      <span>🤖 Phân tích AI — Fakenews Service</span>
       <span style="font-size:0.65rem;font-family:var(--font-mono);color:var(--text-muted);">
-        claude-sonnet · fact-check
+        fakenews-service · deep analysis
       </span>
     </div>
 

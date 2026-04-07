@@ -11,8 +11,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  const result = await DB.getResultById(id);
+  // Retry tối đa 5 lần (250ms/lần) phòng DB chưa kịp ghi trước khi redirect
+  let result = null;
+  for (let i = 0; i < 5; i++) {
+    result = await DB.getResultById(id);
+    if (result) break;
+    await new Promise(r => setTimeout(r, 250));
+  }
   if (!result) {
+    console.warn('[Result] Không tìm thấy result id:', id);
     renderNoResult();
     return;
   }

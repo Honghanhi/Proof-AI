@@ -1,79 +1,82 @@
 // ════════════════════════════════════════════════════════════════════
-//  AI-GEMINI.JS  v4.0  — Dùng Backend Python thay vì gọi Gemini trực tiếp
+//  AI-GEMINI.JS  v5.0  — Microservices Bridge (NO Gemini Proxy)
 //
-//  Lý do: Gemini free tier bị 429 rất nhanh khi gọi từ browser.
-//  Backend Python trên Render xử lý retry / fallback model đúng cách.
-//
-//  Backend URL: đổi BACKEND_URL bên dưới sau khi deploy lên Render
+//  ✓ Gọi trực tiếp từ microservices:
+//    - https://text-service-glgj.onrender.com
+//    - https://fakenews-service.onrender.com
+//    - https://image-lchq.onrender.com
+//  ✓ Wrapper compatibility layer để dùng AIServer
+//  ✓ Health check từ tất cả services
 // ════════════════════════════════════════════════════════════════════
 
 (function (window) {
   'use strict';
 
-  // ══════════════════════════════════════════════════════════
-  //  ⚙️  CẤU HÌNH — SỬA 1 DÒNG sau khi deploy Render
-  // ══════════════════════════════════════════════════════════
-  const BACKEND_URL = 'https://gemini-6qkf.onrender.com';  // ← đổi URL này
-  const VT_KEY      = '';   // nếu muốn gọi VT trực tiếp từ browser (tuỳ chọn)
-  const TIMEOUT_MS  = 35000;
-  // ══════════════════════════════════════════════════════════
+  const TIMEOUT_MS  = 90000;  // 90s để tránh Render cold-start timeout
+  let _online       = null;
+  let _lastCheck    = 0;
+  let _healthPromise = null;
 
-  let _online    = null;   // null = chưa check, true/false = đã check
-  let _lastCheck = 0;
-
-  // ── Core fetch với timeout ────────────────────────────────
-  async function _post(path, body, ms = TIMEOUT_MS) {
-    const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), ms);
-    try {
-      const res = await fetch(`${BACKEND_URL}${path}`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-        signal:  ctrl.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-      return await res.json();
-    } catch (err) {
-      clearTimeout(timer);
-      throw err;
-    }
-  }
-
-  // ── Health check (cache 60s) ──────────────────────────────
+  // ── Health check: kiểm tra tất cả microservices ──────────────
   async function checkHealth() {
     const now = Date.now();
     if (_online !== null && now - _lastCheck < 60000) return _online;
-    try {
-      const res = await fetch(`${BACKEND_URL}/health`, {
-        signal: AbortSignal.timeout(8000),
-      });
-      _online    = res.ok;
-      _lastCheck = now;
-    } catch {
-      _online    = false;
-      _lastCheck = now;
-    }
+    if (_healthPromise) return _healthPromise;
+
+    _healthPromise = (async () => {
+      try {
+        // Kiểm tra nếu AIServer có sẵn từ ai-server.js
+        if (typeof window.AIServer !== 'undefined' && typeof window.AIServer.healthCheck === 'function') {
+          _online = await window.AIServer.healthCheck().catch(() => false);
+          console.log('[AIBackend] Microservices health check:', _online ? 'OK' : 'FAILED');
+        } else {
+          console.warn('[AIBackend] AIServer không tồn tại — chắc chắn ai-server.js đã load trước');
+          _online = false;
+        }
+        _lastCheck = Date.now();
+      } catch (e) {
+        _online = false;
+        _lastCheck = Date.now();
+        console.warn('[AIBackend] health check failed:', e.message);
+      }
+      _healthPromise = null;
+      return _online;
+    })();
+
+    return _healthPromise;
+  }
+
+  async function _ensureOnline() {
+    if (_online === null) await checkHealth();
     return _online;
   }
 
   function isOnline() { return _online === true; }
 
   // ══════════════════════════════════════════════════════════
-  //  AI CALLS — qua backend (không bị 429, không bị CORS)
+  //  AI CALLS — Wrapper qua AIServer (từ ai-server.js)
   // ══════════════════════════════════════════════════════════
 
   async function callAI(prompt, maxTokens = 1000) {
     try {
-      const data = await _post('/proxy/ai', {
-        messages:   [{ role: 'user', content: prompt }],
-        max_tokens: Math.min(maxTokens, 1500),
-      });
-      return data?.text || null;
+      // Fallback chain: AIBackendConfig → AIServer → null
+      // 1. AIBackendConfig (Gemini/Groq/OpenRouter) — tốt cho arbitrary prompts
+      // 2. AIServer (microservices) — chỉ fake news, trả về explanation
+      
+      if (typeof window.AIBackendConfig !== 'undefined' && typeof window.AIBackendConfig.callAI === 'function') {
+        const result = await window.AIBackendConfig.callAI(prompt, maxTokens).catch(() => null);
+        if (result) return result;
+      }
+
+      if (typeof window.AIServer !== 'undefined' && typeof window.AIServer.detectFakeNews === 'function') {
+        const result = await window.AIServer.detectFakeNews(prompt).catch(() => null);
+        // AIServer.detectFakeNews() trả về: { explanation, reasoning, ...}
+        // KHÔNG phải overallAssessment hay summary
+        return result?.explanation || result?.reasoning || null;
+      }
+
+      console.warn('[AIBackend] No AI providers available (AIBackendConfig + AIServer)');
+      return null;
     } catch (err) {
       console.warn('[AIBackend] callAI failed:', err.message);
       return null;
@@ -81,6 +84,13 @@
   }
 
   async function callAIJSON(prompt, maxTokens = 1000) {
+    // Try AIBackendConfig first (better JSON parsing)
+    if (typeof window.AIBackendConfig !== 'undefined' && typeof window.AIBackendConfig.callAIJSON === 'function') {
+      const result = await window.AIBackendConfig.callAIJSON(prompt, maxTokens).catch(() => null);
+      if (result) return result;
+    }
+
+    // Fallback: parse callAI response manually
     const raw = await callAI(prompt, maxTokens);
     if (!raw) return null;
     try {
@@ -92,21 +102,17 @@
     }
   }
 
-  // ── Alias cho code cũ dùng callGemini ────────────────────
-  async function callGemini(prompt, maxTokens = 1000) {
-    return await callAI(prompt, maxTokens);
-  }
-  async function callGeminiJSON(prompt, maxTokens = 1000) {
-    return await callAIJSON(prompt, maxTokens);
-  }
-
   // ══════════════════════════════════════════════════════════
-  //  DOMAIN APIs — qua backend (không CORS, không 403)
+  //  DOMAIN APIs — Direct calls via AIBackendConfig
   // ══════════════════════════════════════════════════════════
 
   async function dnsResolve(domain, type = 'A') {
     try {
-      return await _post('/proxy/dns', { domain, type }, 8000);
+      if (typeof window.AIBackendConfig !== 'undefined' && typeof window.AIBackendConfig.dnsResolve === 'function') {
+        return await window.AIBackendConfig.dnsResolve(domain, type);
+      }
+      console.warn('[AIBackend] AIBackendConfig.dnsResolve không khả dụng');
+      return { ok: false, records: [], answers: [], domain, type };
     } catch (err) {
       console.warn('[AIBackend] DNS failed:', err.message);
       return { ok: false, records: [], answers: [], domain, type };
@@ -115,8 +121,11 @@
 
   async function ipInfo(domain) {
     try {
-      const data = await _post('/proxy/ipinfo', { domain }, 10000);
-      return data?.ok ? data : null;
+      if (typeof window.AIBackendConfig !== 'undefined' && typeof window.AIBackendConfig.ipInfo === 'function') {
+        return await window.AIBackendConfig.ipInfo(domain);
+      }
+      console.warn('[AIBackend] AIBackendConfig.ipInfo không khả dụng');
+      return null;
     } catch (err) {
       console.warn('[AIBackend] ipInfo failed:', err.message);
       return null;
@@ -125,8 +134,11 @@
 
   async function vtScanURL(url) {
     try {
-      const data = await _post('/proxy/virustotal/url', { url }, 20000);
-      return data?.ok ? data : null;
+      if (typeof window.AIBackendConfig !== 'undefined' && typeof window.AIBackendConfig.vtScanURL === 'function') {
+        return await window.AIBackendConfig.vtScanURL(url);
+      }
+      console.warn('[AIBackend] AIBackendConfig.vtScanURL không khả dụng');
+      return null;
     } catch (err) {
       console.warn('[AIBackend] VT URL failed:', err.message);
       return null;
@@ -135,8 +147,11 @@
 
   async function vtDomainInfo(domain) {
     try {
-      const data = await _post('/proxy/virustotal/domain', { domain }, 12000);
-      return data?.ok ? data : null;
+      if (typeof window.AIBackendConfig !== 'undefined' && typeof window.AIBackendConfig.vtDomainInfo === 'function') {
+        return await window.AIBackendConfig.vtDomainInfo(domain);
+      }
+      console.warn('[AIBackend] AIBackendConfig.vtDomainInfo không khả dụng');
+      return null;
     } catch (err) {
       console.warn('[AIBackend] VT domain failed:', err.message);
       return null;
@@ -145,8 +160,11 @@
 
   async function urlscanSearch(domain) {
     try {
-      const data = await _post('/proxy/urlscan', { domain }, 12000);
-      return data?.ok ? data : null;
+      if (typeof window.AIBackendConfig !== 'undefined' && typeof window.AIBackendConfig.urlscanSearch === 'function') {
+        return await window.AIBackendConfig.urlscanSearch(domain);
+      }
+      console.warn('[AIBackend] AIBackendConfig.urlscanSearch không khả dụng');
+      return null;
     } catch (err) {
       console.warn('[AIBackend] URLScan failed:', err.message);
       return null;
@@ -155,8 +173,11 @@
 
   async function fetchSource(url) {
     try {
-      const data = await _post('/proxy/allorigins', { url }, 14000);
-      return data?.ok ? data.html : '';
+      if (typeof window.AIBackendConfig !== 'undefined' && typeof window.AIBackendConfig.fetchSource === 'function') {
+        return await window.AIBackendConfig.fetchSource(url);
+      }
+      console.warn('[AIBackend] AIBackendConfig.fetchSource không khả dụng');
+      return '';
     } catch (err) {
       console.warn('[AIBackend] fetchSource failed:', err.message);
       return '';
@@ -164,13 +185,19 @@
   }
 
   // ══════════════════════════════════════════════════════════
-  //  ANALYZE — shortcut gọi backend analyze
+  //  ANALYZE — Via AIServer microservices
   // ══════════════════════════════════════════════════════════
 
   async function analyzeURL(context) {
+    const online = await _ensureOnline();
+    if (!online) return null;
     try {
-      const data = await _post('/analyze/url', context, 30000);
-      return data?.ok ? data : null;
+      // Nếu cần phân tích URL chuyên sâu, gọi detectFakeNews với context URL
+      if (typeof window.AIServer !== 'undefined' && typeof window.AIServer.analyzeURL === 'function') {
+        return await window.AIServer.analyzeURL(context);
+      }
+      console.warn('[AIBackend] AIServer.analyzeURL không khả dụng');
+      return null;
     } catch (err) {
       console.warn('[AIBackend] analyzeURL failed:', err.message);
       return null;
@@ -178,31 +205,79 @@
   }
 
   async function analyzeContent(payload) {
-    const { type, content } = payload;
+    const { type = 'text', content, imageBase64, mimeType } = payload;
+
+    const online = await _ensureOnline();
+    console.log('[AIBackend] analyzeContent — type:', type, 'online:', online);
+
+    if (!online) {
+      console.error('[AIBackend] Backend not available');
+      throw new Error('Backend required - no local fallback');
+    }
+
     try {
-      const data = await _post('/analyze/text', {
-        text:  content || '',
-        title: payload.title || '',
-      }, 30000);
-      if (!data?.ok) return _localFallback(content);
-      // Map về format mà analyze-page.js expect
-      return {
-        trustScore:  data.trustScore  || (100 - (data.fakePct || 50)),
-        verdict:     _mapVerdict(data.trustScore || 50),
-        models: [{
-          modelId: 'gemini-backend', name: 'Gemini (Backend)',
-          score: data.trustScore || 50, confidence: (data.confidence || 70) / 100,
-          label: data.verdict,
-        }],
-        signals: [
-          { type: 'neutral', text: data.summary || '', weight: 0.8 },
-        ],
-        explanation: data.overallAssessment || data.summary || '',
-        _raw: data,
-      };
+      // ── IMAGE: gửi base64 lên IMAGE service ──
+      if (type === 'image') {
+        if (typeof window.AIServer !== 'undefined' && typeof window.AIServer.analyzeImage === 'function') {
+          const b64 = imageBase64 || (typeof content === 'string' && content.includes(',')
+            ? content.split(',')[1]
+            : content);
+
+          const data = await window.AIServer.analyzeImage(b64);
+
+          if (data?.trustScore !== undefined) {
+            const score = data.trustScore ?? 50;
+            return {
+              trustScore:  score,
+              verdict:     _mapVerdict(score),
+              models: [{
+                modelId:    'image-service',
+                name:       'Image Detection (Microservice)',
+                score,
+                confidence: (data.confidence ?? 70) / 100,
+                label:      data.verdict,
+              }],
+              signals:     [{ type: 'neutral', text: data.summary || '', weight: 0.8 }],
+              explanation: data.overallAssessment || data.summary || '',
+              _raw: data,
+            };
+          }
+        }
+        console.error('[AIBackend] image-service failed');
+        throw new Error('Image service required');
+      }
+
+      // ── TEXT ──
+      if (typeof window.AIServer !== 'undefined' && typeof window.AIServer.analyzeText === 'function') {
+        const data = await window.AIServer.analyzeText(content || '');
+
+        console.log('[AIBackend] analyzeText response:', data);
+
+        if (data?.trustScore !== undefined) {
+          const score = data.trustScore ?? 50;
+          return {
+            trustScore:  score,
+            verdict:     _mapVerdict(score),
+            models: [{
+              modelId:    'text-service',
+              name:       'Text Detection (Microservice)',
+              score,
+              confidence: (data.confidence ?? 70) / 100,
+              label:      data.verdict || 'UNCERTAIN',
+            }],
+            signals:     [{ type: 'neutral', text: data.explanation || '', weight: 0.8 }],
+            explanation: data.explanation || data.summary || '',
+            _raw: data,
+          };
+        }
+      }
+
+      console.error('[AIBackend] analyzeText failed');
+      throw new Error('Text service required');
+
     } catch (err) {
-      console.warn('[AIBackend] analyzeContent failed:', err.message);
-      return _localFallback(content);
+      console.error('[AIBackend] analyzeContent failed:', err.message);
+      throw err;
     }
   }
 
@@ -212,76 +287,42 @@
     return              { label: 'MISLEADING',  color: '#ef4444', class: 'danger'  };
   }
 
-  function _localFallback(content) {
-    const text  = (content || '').toLowerCase();
-    let score   = 65;
-    ['fake','hoax','scam','giả mạo','lừa đảo','cờ bạc','casino','18+','urgent','breaking']
-      .forEach(w => { if (text.includes(w)) score -= 8; });
-    ['official','verified','chính thức','xác nhận','nghiên cứu']
-      .forEach(w => { if (text.includes(w)) score += 5; });
-    score = Math.max(10, Math.min(95, score));
-    return {
-      trustScore:  score,
-      verdict:     _mapVerdict(score),
-      models:      [{ modelId: 'local', name: 'Local Heuristic', score, confidence: 0.4 }],
-      signals:     [{ type: 'neutral', text: 'Backend không khả dụng — phân tích cục bộ', weight: 0.3 }],
-      explanation: `Phân tích cục bộ (backend offline). Điểm: ${score}/100.`,
-    };
-  }
-
   // ══════════════════════════════════════════════════════════
   //  STATUS
   // ══════════════════════════════════════════════════════════
 
   function getStatus() {
     return {
-      ai:     { gemini: _online === true, groq: false, openrouter: false, anyAvailable: _online === true },
+      ai:     { microservices: _online === true, anyAvailable: _online === true },
       domain: { virustotal: true, urlscan: true, ipinfo: true, dns: true },
-      baseURL: BACKEND_URL,
+      services: {
+        text: 'https://text-service-glgj.onrender.com',
+        fakenews: 'https://fakenews-service.onrender.com',
+        image: 'https://image-lchq.onrender.com',
+      },
       isOnline: _online,
     };
   }
-
-  // ══════════════════════════════════════════════════════════
-  //  AIServer compat (fakenews-page.js legacy)
-  // ══════════════════════════════════════════════════════════
-  const AIServer = {
-    isReachable:   () => _online === true,
-    healthCheck:   checkHealth,
-    detectFakeNews: async (text) => {
-      const data = await _post('/analyze/text', { text: text.slice(0, 2500) }, 30000);
-      return {
-        fakePct:    data.fakePct  ?? 50,
-        realPct:    data.realPct  ?? 50,
-        aiPct:      data.fakePct  ?? 50,
-        humanPct:   data.realPct  ?? 50,
-        confidence: (data.confidence ?? 70) / 100,
-        verdict:    data.verdict,
-        overallAssessment: data.overallAssessment,
-        aiAnalysis: data,
-        _source:    'Gemini via Backend',
-      };
-    },
-  };
 
   // ══════════════════════════════════════════════════════════
   //  EXPORT
   // ══════════════════════════════════════════════════════════
   const AIBackend = Object.freeze({
     callAI, callAIJSON,
-    callGemini, callGeminiJSON,
     dnsResolve, ipInfo,
     vtScanURL, vtDomainInfo,
     urlscanSearch, fetchSource,
     analyzeURL, analyzeContent,
     checkHealth, isOnline, getStatus,
-    BASE: BACKEND_URL,
+    services: {
+      TEXT: 'https://text-service-glgj.onrender.com',
+      FAKENEWS: 'https://fakenews-service.onrender.com',
+      IMAGE: 'https://image-lchq.onrender.com',
+    },
   });
 
-  window.AIBackend  = AIBackend;
-  window.AIServer   = AIServer;
+  window.AIBackend = AIBackend;
 
-  // Global aliases
   window.callAI         = callAI;
   window.callAIJSON     = callAIJSON;
   window.callClaude     = callAI;
@@ -323,11 +364,10 @@
     });
   };
 
-  // Warm-up (non-blocking)
   checkHealth().then(ok =>
-    console.log(`[AIBackend] ${ok ? '✓ Online' : '✗ Offline (fallback mode)'} — ${BACKEND_URL}`)
+    console.log(`[AIBackend] ${ok ? '✓ Microservices Online' : '✗ Microservices Required'}`)
   );
 
-  console.log('[AI-Gemini] v4.0 Loaded — Backend mode');
+  console.log('[AI-Gemini] v5.0 Loaded — Microservices bridge mode');
 
 })(window);

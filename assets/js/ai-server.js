@@ -63,7 +63,10 @@ const AIServer = (() => {
 
     for (let attempt = 0; attempt <= RETRY_MAX; attempt++) {
       const ctrl  = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      let completed = false;
+      const timer = setTimeout(() => {
+        if (!completed) ctrl.abort();
+      }, timeoutMs);
 
       try {
         const res = await fetch(url, {
@@ -74,6 +77,7 @@ const AIServer = (() => {
           body:        JSON.stringify(body),
           signal:      ctrl.signal,
         });
+        completed = true;
         clearTimeout(timer);
 
         if (!res.ok) {
@@ -86,6 +90,7 @@ const AIServer = (() => {
         return await res.json();
 
       } catch (err) {
+        completed = true;
         clearTimeout(timer);
         lastErr = err;
 
@@ -106,18 +111,27 @@ const AIServer = (() => {
   // ── Health check (GET /health) ────────────────────────
   async function _pingHealth(serviceKey) {
     const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), HEALTH_TIMEOUT);
+    let completed = false;
+    const timer = setTimeout(() => {
+      if (!completed) ctrl.abort();
+    }, HEALTH_TIMEOUT);
     try {
       const res = await fetch(SVC[serviceKey] + EP.HEALTH, {
         method: 'GET', mode: 'cors', credentials: 'omit', signal: ctrl.signal,
       });
+      completed = true;
       clearTimeout(timer);
       _reach[serviceKey] = res.ok;
       return res.ok;
     } catch (err) {
+      completed = true;
       clearTimeout(timer);
       _reach[serviceKey] = false;
-      console.warn(`[AIServer] ${serviceKey} health failed:`, err.message);
+      if (err.name !== 'AbortError') {
+        console.warn(`[AIServer] ${serviceKey} health failed:`, err.message);
+      } else {
+        console.warn(`[AIServer] ${serviceKey} health timeout`);
+      }
       return false;
     }
   }
